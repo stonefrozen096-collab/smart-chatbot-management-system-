@@ -3,62 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Student Assistant - Login / Signup</title>
+<title>Student Assistant — Login / Signup</title>
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: linear-gradient(135deg, #0077ff, #00d4ff);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        margin: 0;
-    }
-    .container {
-        background: white;
-        padding: 30px;
-        border-radius: 10px;
-        width: 350px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-    }
-    h2 {
-        text-align: center;
-        margin-bottom: 20px;
-        color: #0077ff;
-    }
-    input {
-        width: 100%;
-        padding: 10px;
-        margin: 8px 0;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        box-sizing: border-box;
-    }
-    button {
-        width: 100%;
-        padding: 12px;
-        background: #0077ff;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    button:hover {
-        background: #005bb5;
-    }
-    .toggle-link {
-        text-align: center;
-        margin-top: 12px;
-        cursor: pointer;
-        color: #0077ff;
-        text-decoration: underline;
-    }
-    .error {
-        color: red;
-        text-align: center;
-        margin-bottom: 10px;
-    }
+    body { font-family: Arial; background: linear-gradient(135deg, #0077ff, #00d4ff); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .container { background: white; padding: 30px; border-radius: 10px; width: 350px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+    h2 { text-align: center; margin-bottom: 20px; color: #0077ff; }
+    input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; background: #0077ff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+    button:hover { background: #005bb5; }
+    .toggle-link { text-align: center; margin-top: 12px; cursor: pointer; color: #0077ff; text-decoration: underline; }
+    .error { color: red; text-align: center; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -92,92 +46,44 @@
 
 </div>
 
+<script src="api.js"></script>
 <script>
-const API_URL = ""; // Put your server API base URL if needed
-
-function showSignup() {
-    document.getElementById("loginForm").style.display = "none";
-    document.getElementById("signupForm").style.display = "block";
-}
-function showLogin() {
-    document.getElementById("signupForm").style.display = "none";
-    document.getElementById("loginForm").style.display = "block";
-}
+function showSignup() { document.getElementById("loginForm").style.display = "none"; document.getElementById("signupForm").style.display = "block"; }
+function showLogin() { document.getElementById("signupForm").style.display = "none"; document.getElementById("loginForm").style.display = "block"; }
 
 // ---------------- LOGIN ----------------
 async function login() {
     const email = document.getElementById("loginEmail").value.trim();
     const password = document.getElementById("loginPassword").value.trim();
-    const errorDiv = document.getElementById("loginError");
-    errorDiv.textContent = "";
+    const errorDiv = document.getElementById("loginError"); errorDiv.textContent = "";
 
-    if (!email || !password) {
-        errorDiv.textContent = "All fields are required!";
-        return;
-    }
+    if(!email||!password){ errorDiv.textContent="All fields are required!"; return; }
 
-    try {
-        const res = await fetch(`${API_URL}/api/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password })
-        });
-
-        const data = await res.json();
-        if (!data.success) {
-            errorDiv.textContent = data.error || "Login failed!";
-            return;
-        }
-
-        localStorage.setItem("token", data.token); // store JWT
-        localStorage.setItem("userProfile", JSON.stringify(data.user)); // store profile
-        window.location.href = "chat.html"; // redirect to chat/dashboard
-    } catch(err) {
-        console.error(err);
-        errorDiv.textContent = "Server error, try again later.";
-    }
+    const res = await apiPost("/login", {email,password});
+    if(!res.success){ errorDiv.textContent=res.error||"Login failed!"; return; }
+    
+    window.location.href = "/chat.html";
 }
 
 // ---------------- SIGNUP ----------------
 async function signup() {
-    const name = document.getElementById("signupName").value.trim();
-    const roll = document.getElementById("signupRoll").value.trim();
-    const dept = document.getElementById("signupDept").value.trim();
-    const cls = document.getElementById("signupClass").value.trim();
-    const email = document.getElementById("signupEmail").value.trim();
-    const password = document.getElementById("signupPassword").value.trim();
-    const confirm = document.getElementById("signupConfirmPassword").value.trim();
-    const errorDiv = document.getElementById("signupError");
-    errorDiv.textContent = "";
+    const name=document.getElementById("signupName").value.trim();
+    const roll=document.getElementById("signupRoll").value.trim();
+    const dept=document.getElementById("signupDept").value.trim();
+    const cls=document.getElementById("signupClass").value.trim();
+    const email=document.getElementById("signupEmail").value.trim();
+    const password=document.getElementById("signupPassword").value.trim();
+    const confirm=document.getElementById("signupConfirmPassword").value.trim();
+    const errorDiv=document.getElementById("signupError"); errorDiv.textContent="";
 
-    if (!name || !roll || !dept || !cls || !email || !password || !confirm) {
-        errorDiv.textContent = "All fields are required!";
-        return;
-    }
-    if (password !== confirm) {
-        errorDiv.textContent = "Passwords do not match!";
-        return;
-    }
+    if(!name||!roll||!dept||!cls||!email||!password||!confirm){ errorDiv.textContent="All fields are required!"; return; }
+    if(password!==confirm){ errorDiv.textContent="Passwords do not match!"; return; }
 
-    try {
-        const res = await fetch(`${API_URL}/api/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, roll, dept, cls, email, password, role: "student" })
-        });
+    const res = await apiPost("/register", {name,roll,dept,cls,email,password,role:"student"});
+    if(!res.success){ errorDiv.textContent=res.error||"Signup failed!"; return; }
 
-        const data = await res.json();
-        if (!data.success) {
-            errorDiv.textContent = data.error || "Signup failed!";
-            return;
-        }
-
-        alert("Signup successful! You can now login.");
-        showLogin();
-    } catch(err) {
-        console.error(err);
-        errorDiv.textContent = "Server error, try again later.";
-    }
+    alert("Signup successful! You can now login.");
+    showLogin();
 }
 </script>
 
