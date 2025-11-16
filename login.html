@@ -3,89 +3,209 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Student Assistant — Login / Signup</title>
+<title>Nandha Chatbot Management System</title>
 <style>
-    body { font-family: Arial; background: linear-gradient(135deg, #0077ff, #00d4ff); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .container { background: white; padding: 30px; border-radius: 10px; width: 350px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
-    h2 { text-align: center; margin-bottom: 20px; color: #0077ff; }
-    input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-    button { width: 100%; padding: 12px; background: #0077ff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-    button:hover { background: #005bb5; }
-    .toggle-link { text-align: center; margin-top: 12px; cursor: pointer; color: #0077ff; text-decoration: underline; }
-    .error { color: red; text-align: center; margin-bottom: 10px; }
+  body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #0077ff, #00d4ff);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    color: #fff;
+  }
+
+  /* Floating feathers */
+  @keyframes floatFeather {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+  }
+  .feather {
+    position: absolute;
+    bottom: -10%;
+    width: 40px;
+    height: 40px;
+    background: url('https://cdn-icons-png.flaticon.com/512/616/616408.png') no-repeat center;
+    background-size: contain;
+    animation: floatFeather 12s linear infinite;
+    opacity: 0.7;
+  }
+  .feather:nth-child(1) { left: 10%; animation-delay: 0s; }
+  .feather:nth-child(2) { left: 25%; animation-delay: 3s; transform: scale(0.8); }
+  .feather:nth-child(3) { left: 50%; animation-delay: 6s; transform: scale(1.1); }
+  .feather:nth-child(4) { left: 70%; animation-delay: 1s; transform: scale(0.9); }
+  .feather:nth-child(5) { left: 85%; animation-delay: 4s; transform: scale(1); }
+
+  /* Container */
+  .container {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    padding: 40px 50px;
+    width: 340px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    text-align: center;
+    animation: fadeIn 1s ease-in;
+    z-index: 5;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 {
+    font-size: 27px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    text-shadow: 0 3px 15px rgba(255,255,255,0.3);
+    margin-bottom: 8px;
+  }
+
+  .tagline {
+    font-size: 13px;
+    color: #e0f7ff;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    opacity: 0.9;
+  }
+
+  input, button {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    font-size: 15px;
+  }
+
+  input { background: rgba(255,255,255,0.9); }
+
+  button {
+    background: #0077ff;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  button:hover { background: #00bfff; transform: translateY(-2px); }
+
+  .toggle-link {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #fff;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .error-msg {
+    color: #ffcccb;
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+
+  section { display: none; animation: fadeIn 0.6s ease-in; }
+  #loginSection { display: block; }
 </style>
 </head>
 <body>
+  <div class="feather"></div>
+  <div class="feather"></div>
+  <div class="feather"></div>
+  <div class="feather"></div>
+  <div class="feather"></div>
 
-<div class="container">
+  <div class="container">
+    <h1>Nandha Chatbot Management System</h1>
+    <p class="tagline">Your academic assistant, powered by smart course‑aware AI</p>
 
-    <!-- LOGIN FORM -->
-    <div id="loginForm">
-        <h2>Login</h2>
-        <div class="error" id="loginError"></div>
-        <input type="email" id="loginEmail" placeholder="Email" required>
-        <input type="password" id="loginPassword" placeholder="Password" required>
-        <button onclick="login()">Login</button>
-        <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
-    </div>
+    <!-- LOGIN -->
+    <section id="loginSection">
+      <div class="error-msg" id="loginError"></div>
+      <input type="email" id="loginEmail" placeholder="Email">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button id="loginBtn">Login</button>
+      <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
+    </section>
 
-    <!-- SIGNUP FORM -->
-    <div id="signupForm" style="display:none;">
-        <h2>Signup</h2>
-        <div class="error" id="signupError"></div>
-        <input type="text" id="signupName" placeholder="Name" required>
-        <input type="text" id="signupRoll" placeholder="Roll Number" required>
-        <input type="text" id="signupDept" placeholder="Department" required>
-        <input type="text" id="signupClass" placeholder="Class" required>
-        <input type="email" id="signupEmail" placeholder="Email" required>
-        <input type="password" id="signupPassword" placeholder="Password" required>
-        <input type="password" id="signupConfirmPassword" placeholder="Confirm Password" required>
-        <button onclick="signup()">Signup</button>
-        <div class="toggle-link" onclick="showLogin()">Already have an account? Login</div>
-    </div>
+    <!-- SIGNUP -->
+    <section id="signupSection">
+      <div class="error-msg" id="signupError"></div>
+      <input type="text" id="signupName" placeholder="Full Name">
+      <input type="text" id="signupRoll" placeholder="Roll Number">
+      <input type="text" id="signupDept" placeholder="Department">
+      <input type="text" id="signupClass" placeholder="Class">
+      <input type="email" id="signupEmail" placeholder="Email">
+      <input type="password" id="signupPassword" placeholder="Password">
+      <input type="password" id="signupConfirmPassword" placeholder="Confirm Password">
+      <button id="signupBtn">Sign Up</button>
+      <div class="toggle-link" onclick="showLogin()">Already have an account? Login</div>
+    </section>
+  </div>
 
-</div>
-
-<script src="api.js"></script>
 <script>
-function showSignup() { document.getElementById("loginForm").style.display = "none"; document.getElementById("signupForm").style.display = "block"; }
-function showLogin() { document.getElementById("signupForm").style.display = "none"; document.getElementById("loginForm").style.display = "block"; }
-
-// ---------------- LOGIN ----------------
-async function login() {
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value.trim();
-    const errorDiv = document.getElementById("loginError"); errorDiv.textContent = "";
-
-    if(!email||!password){ errorDiv.textContent="All fields are required!"; return; }
-
-    const res = await apiPost("/login", {email,password});
-    if(!res.success){ errorDiv.textContent=res.error||"Login failed!"; return; }
-    
-    window.location.href = "/chat.html";
+const API_URL = ""; // replace with your backend
+function showSignup() {
+  document.getElementById("loginSection").style.display = "none";
+  document.getElementById("signupSection").style.display = "block";
+}
+function showLogin() {
+  document.getElementById("signupSection").style.display = "none";
+  document.getElementById("loginSection").style.display = "block";
 }
 
-// ---------------- SIGNUP ----------------
-async function signup() {
-    const name=document.getElementById("signupName").value.trim();
-    const roll=document.getElementById("signupRoll").value.trim();
-    const dept=document.getElementById("signupDept").value.trim();
-    const cls=document.getElementById("signupClass").value.trim();
-    const email=document.getElementById("signupEmail").value.trim();
-    const password=document.getElementById("signupPassword").value.trim();
-    const confirm=document.getElementById("signupConfirmPassword").value.trim();
-    const errorDiv=document.getElementById("signupError"); errorDiv.textContent="";
+// ----- LOGIN -----
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value.trim();
+  const errorDiv = document.getElementById("loginError");
+  errorDiv.textContent = "";
+  if(!email||!password){ errorDiv.textContent="All fields are required!"; return; }
 
-    if(!name||!roll||!dept||!cls||!email||!password||!confirm){ errorDiv.textContent="All fields are required!"; return; }
-    if(password!==confirm){ errorDiv.textContent="Passwords do not match!"; return; }
+  try {
+    const res = await fetch(`${API_URL}/api/login`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({email,password})
+    });
+    const data = await res.json();
+    if(!data.success){ errorDiv.textContent=data.error||"Login failed"; return; }
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("userProfile", JSON.stringify(data.user));
+    window.location.href="chat.html";
+  } catch(err){ console.error(err); errorDiv.textContent="Server error, try later."; }
+});
 
-    const res = await apiPost("/register", {name,roll,dept,cls,email,password,role:"student"});
-    if(!res.success){ errorDiv.textContent=res.error||"Signup failed!"; return; }
+// ----- SIGNUP -----
+document.getElementById("signupBtn").addEventListener("click", async ()=>{
+  const name=document.getElementById("signupName").value.trim();
+  const roll=document.getElementById("signupRoll").value.trim();
+  const dept=document.getElementById("signupDept").value.trim();
+  const cls=document.getElementById("signupClass").value.trim();
+  const email=document.getElementById("signupEmail").value.trim();
+  const password=document.getElementById("signupPassword").value.trim();
+  const confirm=document.getElementById("signupConfirmPassword").value.trim();
+  const errorDiv=document.getElementById("signupError");
+  errorDiv.textContent="";
+  if(!name||!roll||!dept||!cls||!email||!password||!confirm){ errorDiv.textContent="All fields required!"; return; }
+  if(password!==confirm){ errorDiv.textContent="Passwords do not match!"; return; }
 
-    alert("Signup successful! You can now login.");
+  try {
+    const res = await fetch(`${API_URL}/api/register`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({name,roll,dept,cls,email,password,role:"student"})
+    });
+    const data=await res.json();
+    if(!data.success){ errorDiv.textContent=data.error||"Signup failed"; return; }
+    alert("Signup successful! Please login.");
     showLogin();
-}
+  } catch(err){ console.error(err); errorDiv.textContent="Server error, try later."; }
+});
 </script>
-
 </body>
 </html>
