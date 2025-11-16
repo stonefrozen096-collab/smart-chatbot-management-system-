@@ -105,7 +105,7 @@ let studentProfile = JSON.parse(localStorage.getItem("userProfile")) || null;
 
 if (!token || !studentProfile) {
   alert("Session expired! Please login again.");
-  window.location.href = "login.html";
+  window.location.href = "index.html";
 }
 
 // Escape HTML to prevent XSS
@@ -167,7 +167,7 @@ async function sendMessage() {
 
     if (res.status === 401) {
       alert("Session expired! Login again.");
-      window.location.href = "login.html";
+      window.location.href = "index.html";
       return;
     }
 
