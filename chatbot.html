@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nandha Chatbot — Student Dashboard</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
   body {
     margin: 0;
@@ -17,82 +19,133 @@
     color: #fff;
     transition: background 0.5s;
   }
+
   .container {
-    width: 400px;
-    max-width: 95%;
-    background: rgba(255,255,255,0.1);
-    border-radius: 15px;
-    padding: 20px;
-    backdrop-filter: blur(10px);
+    width: 420px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 25px;
+    backdrop-filter: blur(12px);
     display: flex;
     flex-direction: column;
     height: 600px;
   }
+
   #chatBox {
     flex: 1;
     overflow-y: auto;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.25);
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 12px;
     margin-bottom: 10px;
     background: rgba(0,0,0,0.1);
   }
+
   .message {
-    margin: 5px 0;
-    padding: 8px 12px;
-    border-radius: 10px;
+    margin: 6px 0;
+    padding: 10px 12px;
+    border-radius: 12px;
     max-width: 80%;
     word-wrap: break-word;
   }
-  .userMsg { background: #3b82f6; align-self: flex-end; }
-  .botMsg { background: #60a5fa; align-self: flex-start; }
+
+  .userMsg { background: #2563eb; align-self: flex-end; }
+  .botMsg { background: #38bdf8; align-self: flex-start; }
+
   #inputSection { display: flex; gap: 10px; }
-  #chatInput { flex: 1; padding: 10px; border-radius: 10px; border: none; outline: none; }
-  #sendBtn { padding: 10px 15px; border: none; border-radius: 10px; background: #22c55e; cursor: pointer; font-weight: 600; }
+  #chatInput {
+    flex: 1; padding: 12px;
+    border-radius: 12px; border: none; outline: none;
+  }
+  #sendBtn {
+    padding: 12px 15px;
+    border: none;
+    border-radius: 12px;
+    background: #22c55e;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s;
+  }
+  #sendBtn:hover { background: #16a34a; }
+
   #studentInfo { margin-bottom: 10px; font-size: 14px; color: #e0f7ff; }
-  #statusMsg { color: yellow; margin: 5px 0; }
+  #statusMsg { color: yellow; margin-bottom: 10px; font-size: 13px; }
+
+  #loading {
+    display: none;
+    text-align: center;
+    margin: 5px 0;
+    font-size: 13px;
+    color: #ffe;
+  }
 </style>
 </head>
 <body>
 
-<div class="container" id="chatContainer">
+<div class="container">
   <h2>Nandha Chatbot</h2>
+
   <div id="statusMsg"></div>
   <div id="studentInfo"></div>
+  <div id="loading">⏳ Please wait...</div>
 
-  <!-- Chat Section -->
-  <div id="chatSection" style="flex-direction: column; height:100%;">
-    <div id="chatBox"></div>
-    <div id="inputSection">
-      <input type="text" id="chatInput" placeholder="Type your question..." autocomplete="off" />
-      <button id="sendBtn">Send</button>
-    </div>
+  <!-- CHAT AREA -->
+  <div id="chatBox"></div>
+
+  <div id="inputSection">
+    <input type="text" id="chatInput" placeholder="Type your question..." autocomplete="off" />
+    <button id="sendBtn">Send</button>
   </div>
 </div>
 
 <script>
-const API_URL = ""; // Set your server API URL
-const token = localStorage.getItem("token"); // JWT from login
+const API_URL = "/api";
+const token = localStorage.getItem("token");
 let studentProfile = JSON.parse(localStorage.getItem("userProfile")) || null;
 
 if (!token || !studentProfile) {
-  alert("Not logged in! Redirecting to login page.");
+  alert("Session expired! Please login again.");
   window.location.href = "login.html";
 }
 
-// Display profile info
-function displayStudentInfo() {
-  if (!studentProfile) return;
-  document.getElementById("studentInfo").textContent =
-    `Name: ${studentProfile.name} | Roll: ${studentProfile.roll} | Dept: ${studentProfile.dept} | Class: ${studentProfile.cls}`;
+// Escape HTML to prevent XSS
+function safe(text) {
+  return text.replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
 }
 
-// ==================== CHAT ====================
+// Display student details
+function displayStudentInfo() {
+  document.getElementById("studentInfo").innerHTML =
+    `👤 ${safe(studentProfile.name)} | 🎓 ${safe(studentProfile.roll)} | ${safe(studentProfile.dept)} - ${safe(studentProfile.cls)}`;
+}
+
+// ---------------- LOCK CHECK ------------------
+async function checkLockStatus() {
+  const res = await fetch(`${API_URL}/chat/lock-status`, {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  const data = await res.json();
+  
+  if (data.locked) {
+    document.getElementById("statusMsg").innerHTML =
+      "⚠️ <b>Chat Locked by Admin:</b> " + safe(data.reason);
+    disableChat();
+  }
+}
+
+// Disable chat inputs
+function disableChat() {
+  document.getElementById("chatInput").disabled = true;
+  document.getElementById("sendBtn").disabled = true;
+  document.getElementById("sendBtn").style.background = "#555";
+}
+
+// ---------------- SEND MESSAGE ----------------
 const chatBox = document.getElementById("chatBox");
 const chatInput = document.getElementById("chatInput");
-const sendBtn = document.getElementById("sendBtn");
 
-sendBtn.addEventListener("click", sendMessage);
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
 
 async function sendMessage() {
   const message = chatInput.value.trim();
@@ -100,9 +153,10 @@ async function sendMessage() {
 
   addMessage("user", message);
   chatInput.value = "";
+  showLoading(true);
 
   try {
-    const res = await fetch(`${API_URL}/api/chat`, {
+    const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
@@ -110,26 +164,42 @@ async function sendMessage() {
       },
       body: JSON.stringify({ prompt: message })
     });
+
+    if (res.status === 401) {
+      alert("Session expired! Login again.");
+      window.location.href = "login.html";
+      return;
+    }
+
     const data = await res.json();
     addMessage("bot", data.answer || "No response from chatbot.");
+
   } catch (err) {
-    console.error(err);
-    addMessage("bot", "Error connecting to server.");
+    addMessage("bot", "⚠️ Error: Unable to reach server.");
   }
+
+  showLoading(false);
 }
 
 function addMessage(sender, text) {
   const div = document.createElement("div");
   div.className = "message " + (sender === "user" ? "userMsg" : "botMsg");
+
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
-  div.innerHTML = `<strong>[${sender === "user" ? "You" : "Bot"} - ${time}]</strong>: ${text}`;
+
+  div.innerHTML = `<strong>[${sender === "user" ? "You" : "Bot"} - ${time}]</strong><br>${safe(text)}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// ==================== INIT ====================
-window.onload = () => {
+function showLoading(state) {
+  document.getElementById("loading").style.display = state ? "block" : "none";
+}
+
+// ---------------- INIT ----------------
+window.onload = async () => {
   displayStudentInfo();
+  await checkLockStatus();
 };
 </script>
 </body>
