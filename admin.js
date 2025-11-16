@@ -20,7 +20,7 @@ async function secureFetch(url, options = {}) {
     // If unauthorized → auto logout
     if (res.status === 401 || res.status === 403) {
         alert("Session expired. Please log in again.");
-        window.location.href = "/login.html";
+        window.location.href = "/index.html";
         return;
     }
 
@@ -55,7 +55,7 @@ function showSection(id) {
 // ========================
 async function logout() {
     await secureFetch("/api/admin/logout", { method: "POST" });
-    window.location.href = "login.html";
+    window.location.href = "index.html";
 }
 
 
