@@ -1,5 +1,6 @@
 // ==================== CONFIG ====================
-const API_URL = ""; // Set your Render Gemini API environment variable here
+const API_URL = ""; // Set your backend API base URL
+let TOKEN = ""; // Set after login
 
 // ==================== DOM ELEMENTS ====================
 const profileSection = document.getElementById("profileSection");
@@ -10,202 +11,194 @@ const sendBtn = document.getElementById("sendBtn");
 const profileBtn = document.getElementById("profileBtn");
 const statusMsg = document.getElementById("statusMsg");
 
-// Optional: student controls
 const bgColorInput = document.getElementById("bgColorInput");
 const resetProfileBtn = document.getElementById("resetProfileBtn");
 const clearChatBtn = document.getElementById("clearChatBtn");
 const studentInfoDiv = document.getElementById("studentInfo");
 
-// ==================== INITIAL CHECK ====================
-let studentProfile = JSON.parse(localStorage.getItem("studentProfile")) || null;
-let chatLock = false; // global lock
-let warnings = JSON.parse(localStorage.getItem("warnings")) || {};
+// ==================== STATE ====================
+let studentProfile = null;
+let chatLock = false;
+let warningsCount = 0;
 
-// Show profile form if not filled
-if (!studentProfile) {
-  profileSection.style.display = "flex";
-  chatSection.style.display = "none";
-  statusMsg.textContent = "Please fill your profile first!";
-} else {
-  profileSection.style.display = "none";
-  chatSection.style.display = "flex";
-  statusMsg.textContent = "";
-  displayStudentInfo();
-  applyBackgroundColor();
-  displayWarningsCount();
-  loadChatHistory();
+// ==================== INIT ====================
+window.onload = async () => {
+  await loadProfileFromServer();
+  await applyBackgroundColorFromServer();
+  await loadChatHistoryFromServer();
+  await fetchWarnings();
+};
+
+// ==================== PROFILE ====================
+async function loadProfileFromServer() {
+  try {
+    const res = await fetch(`${API_URL}/api/me`, {
+      headers: { Authorization: `Bearer ${TOKEN}` }
+    });
+    if (!res.ok) throw new Error("Profile not found");
+    studentProfile = await res.json();
+    profileSection.style.display = "none";
+    chatSection.style.display = "flex";
+    statusMsg.textContent = "";
+    displayStudentInfo();
+  } catch {
+    profileSection.style.display = "flex";
+    chatSection.style.display = "none";
+    statusMsg.textContent = "Please fill your profile first!";
+  }
 }
 
-// ==================== LOAD PROFILE ====================
-function loadProfile() {
-  if (!studentProfile) return;
-  document.getElementById("studentName").value = studentProfile.name;
-  document.getElementById("studentRoll").value = studentProfile.roll;
-  document.getElementById("studentDept").value = studentProfile.dept;
-  document.getElementById("studentClass").value = studentProfile.cls;
-}
-
-// ==================== PROFILE SAVE ====================
-profileBtn.addEventListener("click", () => {
+profileBtn?.addEventListener("click", async () => {
   const name = document.getElementById("studentName").value.trim();
   const roll = document.getElementById("studentRoll").value.trim();
   const dept = document.getElementById("studentDept").value;
   const cls = document.getElementById("studentClass").value;
 
-  if (!name || !roll || !dept || !cls) {
-    alert("All fields are required!");
-    return;
-  }
+  if (!name || !roll || !dept || !cls) return alert("All fields are required!");
 
-  studentProfile = { name, roll, dept, cls };
-  localStorage.setItem("studentProfile", JSON.stringify(studentProfile));
-
+  const profile = { name, roll, dept, cls };
+  await fetch(`${API_URL}/api/me`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify(profile)
+  });
+  studentProfile = profile;
   profileSection.style.display = "none";
   chatSection.style.display = "flex";
   statusMsg.textContent = "";
   displayStudentInfo();
-  displayWarningsCount();
-  loadChatHistory();
 });
 
-// ==================== DISPLAY STUDENT INFO ====================
+// ==================== DISPLAY INFO ====================
 function displayStudentInfo() {
-  if (!studentInfoDiv || !studentProfile) return;
+  if (!studentProfile || !studentInfoDiv) return;
   studentInfoDiv.innerHTML = `
     <strong>${studentProfile.name}</strong> | Roll: ${studentProfile.roll} | Dept: ${studentProfile.dept} | Class: ${studentProfile.cls}
   `;
 }
 
-// ==================== CHAT SEND ====================
-sendBtn.addEventListener("click", async () => {
+// ==================== CHAT ====================
+sendBtn?.addEventListener("click", async () => {
   const message = chatInput.value.trim();
   if (!message) return;
 
-  if (chatLock || checkSpecificLock()) {
-    alert("⚠️ Chat is currently locked!");
-    return;
+  if (chatLock || await checkSpecificLockFromServer()) {
+    return alert("⚠️ Chat is currently locked!");
   }
 
-  addMessage("user", message);
+  await addMessage("user", message);
   chatInput.value = "";
 
   if (!isValidSyllabusQuery(message)) {
-    registerWarning();
-    addMessage("bot", "⚠️ You are only allowed to ask syllabus-related questions.");
-    displayWarningsCount();
+    await registerWarning();
+    await addMessage("bot", "⚠️ You are only allowed to ask syllabus-related questions.");
     return;
   }
 
   const response = await askGemini(message);
-  addMessage("bot", response);
+  await addMessage("bot", response);
 });
 
-// ==================== ADD MESSAGE ====================
-function addMessage(sender, text) {
+async function addMessage(sender, text, time = null) {
+  time = time || new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
   const div = document.createElement("div");
   div.className = "message " + (sender === "user" ? "userMsg" : "botMsg");
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
   div.innerHTML = `<strong>[${sender === "user" ? "You" : "Bot"} - ${time}]</strong>: ${text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // Save chat history
-  let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-  history.push({ sender, text, time });
-  localStorage.setItem("chatHistory", JSON.stringify(history));
+  await fetch(`${API_URL}/api/chat/history`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ sender, text, time })
+  });
+}
+
+async function loadChatHistoryFromServer() {
+  const res = await fetch(`${API_URL}/api/chat/history`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!res.ok) return;
+  const history = await res.json();
+  history.forEach(m => addMessage(m.sender, m.text, m.time));
 }
 
 // ==================== SYLLABUS CHECK ====================
 function isValidSyllabusQuery(text) {
-  const allowedKeywords = JSON.parse(localStorage.getItem("syllabusKeywords") || '["course","syllabus"]');
+  const allowedKeywords = ["course", "syllabus"]; // default or fetch from server
   return allowedKeywords.some(k => text.toLowerCase().includes(k));
 }
 
-// ==================== WARNINGS / AUTO-LOCK ====================
-function registerWarning() {
-  const key = studentProfile.roll;
-  warnings[key] = (warnings[key] || 0) + 1;
-  localStorage.setItem("warnings", JSON.stringify(warnings));
+// ==================== WARNINGS ====================
+async function fetchWarnings() {
+  const res = await fetch(`${API_URL}/api/warnings`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!res.ok) return;
+  const data = await res.json();
+  warningsCount = data.count || 0;
+  chatLock = data.locked || false;
+  displayWarningsCount();
+}
 
-  // Auto-lock after 3 violations (or admin setting)
-  const autoLockSetting = localStorage.getItem("autoLock") || "After 3 violations";
-  const threshold = autoLockSetting.includes("5") ? 5 : 3;
-
-  if (warnings[key] >= threshold) {
-    chatLock = true;
-    alert("⚠️ You have been auto-locked due to repeated violations.");
-  }
+async function registerWarning() {
+  const res = await fetch(`${API_URL}/api/warnings`, { method: "POST", headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!res.ok) return;
+  const data = await res.json();
+  warningsCount = data.count || 0;
+  chatLock = data.locked || false;
+  displayWarningsCount();
 }
 
 function displayWarningsCount() {
-  if (!studentProfile) return;
-  const key = studentProfile.roll;
-  const count = warnings[key] || 0;
-  statusMsg.textContent = count ? `⚠️ Warnings: ${count}` : "";
+  statusMsg.textContent = warningsCount ? `⚠️ Warnings: ${warningsCount}` : "";
 }
 
-// ==================== GLOBAL & SPECIFIC LOCK ====================
-function checkSpecificLock() {
-  const lock = JSON.parse(localStorage.getItem("specificLock") || "{}");
-  if (!lock.department) return false;
-  if (lock.student === studentProfile.roll) return true;
-  if (lock.class === studentProfile.cls && lock.department === studentProfile.dept) return true;
-  return false;
+// ==================== LOCK ====================
+async function checkSpecificLockFromServer() {
+  const res = await fetch(`${API_URL}/api/locks`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return data.locked || false;
 }
 
-function setGlobalLock(state) {
-  chatLock = state;
-}
-
-// ==================== GEMINI API ====================
+// ==================== GEMINI ====================
 async function askGemini(prompt) {
   try {
     const res = await fetch(`${API_URL}/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
       body: JSON.stringify({ prompt })
     });
     const data = await res.json();
     return data.answer || "No response from chatbot.";
-  } catch (err) {
+  } catch {
     return "Error connecting to chatbot server.";
   }
 }
 
-// ==================== BACKGROUND COLOR ====================
-function applyBackgroundColor() {
-  const bgColor = localStorage.getItem("chatBGColor") || "linear-gradient(135deg, #0077ff, #00d4ff)";
+// ==================== BACKGROUND ====================
+async function applyBackgroundColorFromServer() {
+  const res = await fetch(`${API_URL}/api/me/settings`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!res.ok) return;
+  const settings = await res.json();
+  const bgColor = settings.bgColor || "linear-gradient(135deg, #0077ff, #00d4ff)";
   document.body.style.background = bgColor;
 }
 
-bgColorInput?.addEventListener("change", (e) => {
-  localStorage.setItem("chatBGColor", e.target.value);
-  applyBackgroundColor();
+bgColorInput?.addEventListener("change", async (e) => {
+  const bgColor = e.target.value;
+  await fetch(`${API_URL}/api/me/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ bgColor })
+  });
+  document.body.style.background = bgColor;
 });
 
-// ==================== CHAT HISTORY ====================
-function loadChatHistory() {
-  const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-  history.forEach(m => addMessage(m.sender, m.text));
-}
-
-// ==================== RESET PROFILE / CLEAR CHAT ====================
-resetProfileBtn?.addEventListener("click", () => {
-  localStorage.removeItem("studentProfile");
-  localStorage.removeItem("chatHistory");
+// ==================== RESET / CLEAR ====================
+resetProfileBtn?.addEventListener("click", async () => {
+  await fetch(`${API_URL}/api/me/reset`, { method: "POST", headers: { Authorization: `Bearer ${TOKEN}` } });
   location.reload();
 });
 
-clearChatBtn?.addEventListener("click", () => {
-  localStorage.removeItem("chatHistory");
+clearChatBtn?.addEventListener("click", async () => {
+  await fetch(`${API_URL}/api/chat/history`, { method: "DELETE", headers: { Authorization: `Bearer ${TOKEN}` } });
   chatBox.innerHTML = "";
 });
-
-// ==================== INIT ====================
-window.onload = () => {
-  loadProfile();
-  applyBackgroundColor();
-  loadChatHistory();
-  displayWarningsCount();
-  displayStudentInfo();
-};
