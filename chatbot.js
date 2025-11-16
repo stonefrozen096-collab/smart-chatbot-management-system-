@@ -6,7 +6,7 @@ let TOKEN = "";     // Should be set by login.html after successful login
 function ensureToken() {
   if (!TOKEN) {
     alert("Security Error: No access token found. Please log in again.");
-    window.location.href = "login.html";
+    window.location.href = "index.html";
     throw new Error("TOKEN missing");
   }
 }
@@ -56,7 +56,7 @@ async function secureFetch(url, options = {}) {
   // Token expired → auto logout
   if (res.status === 401) {
     alert("Session expired. Please login again.");
-    window.location.href = "login.html";
+    window.location.href = "index.html";
     return;
   }
   return res;
