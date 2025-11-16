@@ -1,207 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nandha Chatbot Management System</title>
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Assistant - Login / Signup</title>
+<style>
     body {
-      margin: 0;
-      font-family: "Poppins", sans-serif;
-      background: linear-gradient(135deg, #0077ff, #00d4ff);
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #fff;
-      overflow: hidden;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #0077ff, #00d4ff);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
     }
-
-    @keyframes floatFeather {
-      0% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
-    }
-
-    .feather {
-      position: absolute;
-      bottom: -10%;
-      width: 40px;
-      height: 40px;
-      background: url('https://cdn-icons-png.flaticon.com/512/616/616408.png') no-repeat center;
-      background-size: contain;
-      animation: floatFeather 12s linear infinite;
-      opacity: 0.7;
-    }
-
-    .feather:nth-child(1) { left: 10%; animation-delay: 0s; }
-    .feather:nth-child(2) { left: 25%; animation-delay: 3s; transform: scale(0.8); }
-    .feather:nth-child(3) { left: 50%; animation-delay: 6s; transform: scale(1.1); }
-    .feather:nth-child(4) { left: 70%; animation-delay: 1s; transform: scale(0.9); }
-    .feather:nth-child(5) { left: 85%; animation-delay: 4s; transform: scale(1); }
-
     .container {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 20px;
-      backdrop-filter: blur(12px);
-      padding: 40px 50px;
-      width: 340px;
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-      text-align: center;
-      animation: fadeIn 1s ease-in;
-      z-index: 5;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        width: 350px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
     }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #0077ff;
     }
-
-    h1 {
-      font-size: 27px;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: 1px;
-      text-shadow: 0 3px 15px rgba(255, 255, 255, 0.3);
-      margin-bottom: 8px;
-    }
-
-    .tagline {
-      font-size: 13px;
-      color: #e0f7ff;
-      letter-spacing: 1px;
-      margin-bottom: 20px;
-      opacity: 0.9;
-    }
-
     input {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      margin: 10px 0;
-      border: none;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      font-size: 15px;
-      outline: none;
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
     }
-
     button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border: none;
-      border-radius: 8px;
-      background: #0077ff;
-      color: white;
-      font-weight: 600;
-      font-size: 15px;
-      cursor: pointer;
-      transition: 0.3s;
+        width: 100%;
+        padding: 12px;
+        background: #0077ff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
     }
-
     button:hover {
-      background: #00bfff;
-      transform: translateY(-2px);
+        background: #005bb5;
     }
-
-    a {
-      color: #fff;
-      text-decoration: underline;
-      font-size: 14px;
-      cursor: pointer;
+    .toggle-link {
+        text-align: center;
+        margin-top: 12px;
+        cursor: pointer;
+        color: #0077ff;
+        text-decoration: underline;
     }
-
-    .feedback-msg {
-      margin-top: 10px;
-      font-size: 14px;
-      font-weight: 500;
+    .error {
+        color: red;
+        text-align: center;
+        margin-bottom: 10px;
     }
-
-    section {
-      display: none;
-      animation: fadeIn 0.6s ease-in;
-    }
-
-    #auth-section {
-      display: block;
-    }
-
-    #signupFields {
-      display: none;
-    }
-  </style>
+</style>
 </head>
 <body>
-  <div class="feather"></div>
-  <div class="feather"></div>
-  <div class="feather"></div>
-  <div class="feather"></div>
-  <div class="feather"></div>
 
-  <div class="container">
-    <h1>Nandha Chatbot Management System</h1>
-    <p class="tagline">Your academic assistant, powered by smart course‑aware AI</p>
+<div class="container">
 
-    <section id="auth-section">
-      <div id="signupFields">
-        <input type="text" id="authName" placeholder="Full Name">
-      </div>
-      <input type="email" id="authEmail" placeholder="Email">
-      <input type="password" id="authPassword" placeholder="Password">
+    <!-- LOGIN FORM -->
+    <div id="loginForm">
+        <h2>Login</h2>
+        <div class="error" id="loginError"></div>
+        <input type="email" id="loginEmail" placeholder="Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button onclick="login()">Login</button>
+        <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
+    </div>
 
-      <button id="loginBtn">Login</button>
-      <button id="signupBtn">Sign Up</button>
+    <!-- SIGNUP FORM -->
+    <div id="signupForm" style="display:none;">
+        <h2>Signup</h2>
+        <div class="error" id="signupError"></div>
+        <input type="text" id="signupName" placeholder="Name" required>
+        <input type="text" id="signupRoll" placeholder="Roll Number" required>
+        <input type="text" id="signupDept" placeholder="Department" required>
+        <input type="text" id="signupClass" placeholder="Class" required>
+        <input type="email" id="signupEmail" placeholder="Email" required>
+        <input type="password" id="signupPassword" placeholder="Password" required>
+        <input type="password" id="signupConfirmPassword" placeholder="Confirm Password" required>
+        <button onclick="signup()">Signup</button>
+        <div class="toggle-link" onclick="showLogin()">Already have an account? Login</div>
+    </div>
 
-      <p><a id="forgotLink">Forgot Password?</a></p>
-      <p id="authMsg" class="feedback-msg"></p>
+</div>
 
-      <p id="toggleSignupMsg">New user? <a id="showSignup">Sign Up</a></p>
-      <p id="toggleLoginMsg" style="display:none;">Already have an account? <a id="showLogin">Login</a></p>
-    </section>
+<script>
+const API_URL = ""; // Put your server API base URL if needed
 
-    <section id="forgot-section">
-      <h2>Forgot Password</h2>
-      <input type="email" id="fpEmail" placeholder="Registered Email">
-      <button id="sendTokenBtn">Send Reset Token</button>
-      <p id="fpMsg"></p>
-      <p><a id="backToAuth">Back</a></p>
-    </section>
+function showSignup() {
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("signupForm").style.display = "block";
+}
+function showLogin() {
+    document.getElementById("signupForm").style.display = "none";
+    document.getElementById("loginForm").style.display = "block";
+}
 
-    <section id="reset-section">
-      <h2>Reset Password</h2>
-      <input type="text" id="resetToken" placeholder="Enter token">
-      <input type="password" id="newPassword" placeholder="New Password">
-      <input type="password" id="confirmPassword" placeholder="Confirm Password">
-      <button id="resetBtn">Reset Password</button>
-      <p id="resetMsg"></p>
-    </section>
-  </div>
+// ---------------- LOGIN ----------------
+async function login() {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value.trim();
+    const errorDiv = document.getElementById("loginError");
+    errorDiv.textContent = "";
 
-  <script src="auth.js"></script>
-  <script>
-    // Toggle between login & signup views
-    const signupFields = document.getElementById("signupFields");
-    const showSignup = document.getElementById("showSignup");
-    const showLogin = document.getElementById("showLogin");
-    const toggleSignupMsg = document.getElementById("toggleSignupMsg");
-    const toggleLoginMsg = document.getElementById("toggleLoginMsg");
+    if (!email || !password) {
+        errorDiv.textContent = "All fields are required!";
+        return;
+    }
 
-    showSignup.addEventListener("click", () => {
-      signupFields.style.display = "block";
-      loginBtn.style.display = "none";
-      signupBtn.style.display = "block";
-      toggleSignupMsg.style.display = "none";
-      toggleLoginMsg.style.display = "block";
-    });
+    try {
+        const res = await fetch(`${API_URL}/api/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
 
-    showLogin.addEventListener("click", () => {
-      signupFields.style.display = "none";
-      loginBtn.style.display = "block";
-      signupBtn.style.display = "none";
-      toggleSignupMsg.style.display = "block";
-      toggleLoginMsg.style.display = "none";
-    });
-  </script>
+        const data = await res.json();
+        if (!data.success) {
+            errorDiv.textContent = data.error || "Login failed!";
+            return;
+        }
+
+        localStorage.setItem("token", data.token); // store JWT
+        localStorage.setItem("userProfile", JSON.stringify(data.user)); // store profile
+        window.location.href = "chat.html"; // redirect to chat/dashboard
+    } catch(err) {
+        console.error(err);
+        errorDiv.textContent = "Server error, try again later.";
+    }
+}
+
+// ---------------- SIGNUP ----------------
+async function signup() {
+    const name = document.getElementById("signupName").value.trim();
+    const roll = document.getElementById("signupRoll").value.trim();
+    const dept = document.getElementById("signupDept").value.trim();
+    const cls = document.getElementById("signupClass").value.trim();
+    const email = document.getElementById("signupEmail").value.trim();
+    const password = document.getElementById("signupPassword").value.trim();
+    const confirm = document.getElementById("signupConfirmPassword").value.trim();
+    const errorDiv = document.getElementById("signupError");
+    errorDiv.textContent = "";
+
+    if (!name || !roll || !dept || !cls || !email || !password || !confirm) {
+        errorDiv.textContent = "All fields are required!";
+        return;
+    }
+    if (password !== confirm) {
+        errorDiv.textContent = "Passwords do not match!";
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/api/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, roll, dept, cls, email, password, role: "student" })
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+            errorDiv.textContent = data.error || "Signup failed!";
+            return;
+        }
+
+        alert("Signup successful! You can now login.");
+        showLogin();
+    } catch(err) {
+        console.error(err);
+        errorDiv.textContent = "Server error, try again later.";
+    }
+}
+</script>
+
 </body>
 </html>
