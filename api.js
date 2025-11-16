@@ -2,8 +2,7 @@
    CENTRAL API MODULE — Secure Client → Server Connector
 ===================================================== */
 
-const API_BASE = "/api"; // if backend hosted elsewhere, change here
-
+const API_BASE = "https://smart-chatbot-backend-w5tq.onrender.com";
 /* =====================================================
    AUTH (Login / Register / Profile)
 ===================================================== */
