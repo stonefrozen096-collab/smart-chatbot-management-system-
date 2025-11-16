@@ -58,14 +58,21 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 // ---------------------- Redis (ioredis) ----------------------
-let redis = null;
-if (REDIS_URL) {
-  redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 3 });
-  redis.on("connect", () => console.log("✅ Redis connected"));
-  redis.on("error", (err) => console.error("Redis error:", err));
+
+let redis;
+
+if (process.env.REDIS_URL) {
+  if (!global.redis) { // Check if Redis is already initialized globally
+    global.redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 3 });
+    global.redis.on("connect", () => console.log("✅ Redis connected"));
+    global.redis.on("error", (err) => console.error("❌ Redis error:", err));
+  }
+  redis = global.redis;
 } else {
-  console.warn("⚠️ REDIS_URL not set — Redis-backed features disabled (use for cross-instance safety).");
+  console.warn("⚠️ REDIS_URL not set — Redis-backed features disabled.");
 }
+
+export { redis };
 
 // ---------------------- Middleware ----------------------
 app.use(helmet());
