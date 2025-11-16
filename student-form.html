@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nandha Chatbot — Student Profile</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  body {
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(135deg, #0077ff, #00d4ff);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .container {
+    background: rgba(255,255,255,0.15);
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    padding: 40px 50px;
+    width: 400px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    text-align: center;
+    color: #fff;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  p {
+    font-size: 14px;
+    margin-bottom: 25px;
+    opacity: 0.9;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.9);
+    font-size: 15px;
+    outline: none;
+    color: #000;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 8px;
+    background: #0077ff;
+    color: white;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  button:hover {
+    background: #00bfff;
+  }
+
+  .feedback-msg {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Student Profile</h1>
+  <p>Please fill out your profile to start chatting with your course-aware chatbot.</p>
+
+  <input type="text" id="fullName" placeholder="Full Name">
+  <input type="email" id="email" placeholder="Email">
+  <input type="text" id="rollNumber" placeholder="Roll Number">
+  <input type="text" id="department" placeholder="Department">
+  <input type="text" id="className" placeholder="Class / Section">
+  <select id="semester">
+    <option value="">Select Semester</option>
+    <option>1</option>
+    <option>2</option>
+    <option>3</option>
+    <option>4</option>
+    <option>5</option>
+    <option>6</option>
+    <option>7</option>
+    <option>8</option>
+  </select>
+
+  <button id="saveProfile">Save Profile</button>
+  <p id="profileMsg" class="feedback-msg"></p>
+</div>
+
+<script>
+  // Check if profile exists
+  const storedProfile = localStorage.getItem('studentProfile');
+  if(storedProfile) {
+    const profile = JSON.parse(storedProfile);
+    document.getElementById('fullName').value = profile.fullName;
+    document.getElementById('email').value = profile.email;
+    document.getElementById('rollNumber').value = profile.rollNumber;
+    document.getElementById('department').value = profile.department;
+    document.getElementById('className').value = profile.className;
+    document.getElementById('semester').value = profile.semester;
+  }
+
+  document.getElementById('saveProfile').addEventListener('click', () => {
+    const fullName = document.getElementById('fullName').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const rollNumber = document.getElementById('rollNumber').value.trim();
+    const department = document.getElementById('department').value.trim();
+    const className = document.getElementById('className').value.trim();
+    const semester = document.getElementById('semester').value;
+
+    if(!fullName || !email || !rollNumber || !department || !className || !semester) {
+      document.getElementById('profileMsg').style.color = 'salmon';
+      document.getElementById('profileMsg').textContent = 'Please fill all fields.';
+      return;
+    }
+
+    const profileData = { fullName, email, rollNumber, department, className, semester };
+    localStorage.setItem('studentProfile', JSON.stringify(profileData));
+
+    document.getElementById('profileMsg').style.color = 'lightgreen';
+    document.getElementById('profileMsg').textContent = '✅ Profile saved successfully! Redirecting...';
+
+    // Redirect to chatbot interface after 1 second
+    setTimeout(() => {
+      window.location.href = 'chatbot.html';
+    }, 1000);
+  });
+</script>
+
+</body>
+</html>
