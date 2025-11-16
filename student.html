@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nandha Chatbot — Student</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0077ff, #00d4ff);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        color: #fff;
+        overflow: hidden;
+        transition: background 0.5s ease;
+    }
+
+    h1 { margin-top: 20px; }
+
+    /* Profile Form */
+    #profileForm, #chatContainer {
+        width: 90%;
+        max-width: 500px;
+        background: rgba(255,255,255,0.1);
+        padding: 20px;
+        border-radius: 15px;
+        margin-top: 20px;
+        backdrop-filter: blur(8px);
+        display: none;
+    }
+
+    #profileForm.active, #chatContainer.active { display: block; }
+
+    input, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        margin: 8px 0;
+        font-size: 15px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 8px;
+        background: #3b82f6;
+        font-weight: 600;
+        cursor: pointer;
+        color: white;
+        transition: 0.3s;
+    }
+
+    button:hover { background: #60a5fa; }
+
+    /* Chat Area */
+    #chatBox {
+        height: 300px;
+        overflow-y: auto;
+        background: rgba(0,0,0,0.2);
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+
+    .msg { margin: 5px 0; padding: 5px 10px; border-radius: 8px; max-width: 80%; }
+    .studentMsg { background: rgba(255,255,255,0.6); color: #000; align-self: flex-end; }
+    .botMsg { background: rgba(0,0,0,0.5); color: #fff; align-self: flex-start; }
+</style>
+</head>
+<body>
+
+<h1>Nandha Chatbot</h1>
+
+<!-- Profile Form -->
+<div id="profileForm" class="active">
+    <h2>Fill Your Profile</h2>
+    <input type="text" id="stuName" placeholder="Full Name">
+    <input type="email" id="stuEmail" placeholder="Email">
+    <select id="stuDept">
+        <option value="">Select Department</option>
+        <option value="CSE">CSE</option>
+        <option value="ECE">ECE</option>
+        <option value="MECH">MECH</option>
+    </select>
+    <input type="text" id="stuClass" placeholder="Class / Semester">
+    <button onclick="saveProfile()">Save Profile</button>
+</div>
+
+<!-- Chat Container -->
+<div id="chatContainer">
+    <div id="chatBox" class="flex flex-col"></div>
+    <input type="text" id="chatInput" placeholder="Type your question...">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script src="chatbot.js"></script>
+</body>
+</html>
