@@ -86,7 +86,7 @@
     outline: none;
   }
 
-  #profileBtn {
+  #profileBtn, #resetProfileBtn {
     padding: 10px;
     background: #3b82f6;
     color: white;
@@ -100,6 +100,11 @@
     margin: 5px 0;
   }
 
+  #studentInfo {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #e0f7ff;
+  }
 </style>
 </head>
 <body>
@@ -110,8 +115,8 @@
   <!-- Profile Form -->
   <div id="profileSection">
     <h3>Fill Your Profile First</h3>
-    <input type="text" id="studentName" placeholder="Full Name">
-    <input type="text" id="studentRoll" placeholder="Roll Number">
+    <input type="text" id="studentName" placeholder="Full Name" autocomplete="off">
+    <input type="text" id="studentRoll" placeholder="Roll Number" autocomplete="off">
     <select id="studentDept">
       <option value="">Select Department</option>
       <option value="CSE">CSE</option>
@@ -123,18 +128,39 @@
       <option value="2nd Year">2nd Year</option>
     </select>
     <button id="profileBtn">Save Profile</button>
+    <button id="resetProfileBtn" style="background:#ef4444;">Reset Profile</button>
   </div>
 
   <!-- Chat Section -->
   <div id="chatSection" style="display:none; flex-direction: column; height:100%;">
+    <div id="studentInfo"></div>
     <div id="chatBox"></div>
     <div id="inputSection">
-      <input type="text" id="chatInput" placeholder="Type your question..." />
+      <input type="text" id="chatInput" placeholder="Type your question..." autocomplete="off" />
       <button id="sendBtn">Send</button>
     </div>
   </div>
 </div>
 
 <script src="chatbot.js"></script>
+<script>
+  // Reset profile logic
+  const resetBtn = document.getElementById("resetProfileBtn");
+  resetBtn.addEventListener("click", () => {
+    localStorage.removeItem("studentProfile");
+    location.reload();
+  });
+
+  // Display student info in header
+  function showStudentInfo() {
+    const studentProfile = JSON.parse(localStorage.getItem("studentProfile"));
+    if (studentProfile) {
+      document.getElementById("studentInfo").textContent =
+        `Name: ${studentProfile.name} | Roll: ${studentProfile.roll} | Dept: ${studentProfile.dept} | Class: ${studentProfile.cls}`;
+    }
+  }
+
+  showStudentInfo();
+</script>
 </body>
 </html>
