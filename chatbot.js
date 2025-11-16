@@ -9,7 +9,12 @@ const chatInput = document.getElementById("chatInput");
 const sendBtn = document.getElementById("sendBtn");
 const profileBtn = document.getElementById("profileBtn");
 const statusMsg = document.getElementById("statusMsg");
+
+// Optional: student controls
 const bgColorInput = document.getElementById("bgColorInput");
+const resetProfileBtn = document.getElementById("resetProfileBtn");
+const clearChatBtn = document.getElementById("clearChatBtn");
+const studentInfoDiv = document.getElementById("studentInfo");
 
 // ==================== INITIAL CHECK ====================
 let studentProfile = JSON.parse(localStorage.getItem("studentProfile")) || null;
@@ -25,8 +30,10 @@ if (!studentProfile) {
   profileSection.style.display = "none";
   chatSection.style.display = "flex";
   statusMsg.textContent = "";
+  displayStudentInfo();
   applyBackgroundColor();
   displayWarningsCount();
+  loadChatHistory();
 }
 
 // ==================== LOAD PROFILE ====================
@@ -56,8 +63,18 @@ profileBtn.addEventListener("click", () => {
   profileSection.style.display = "none";
   chatSection.style.display = "flex";
   statusMsg.textContent = "";
+  displayStudentInfo();
   displayWarningsCount();
+  loadChatHistory();
 });
+
+// ==================== DISPLAY STUDENT INFO ====================
+function displayStudentInfo() {
+  if (!studentInfoDiv || !studentProfile) return;
+  studentInfoDiv.innerHTML = `
+    <strong>${studentProfile.name}</strong> | Roll: ${studentProfile.roll} | Dept: ${studentProfile.dept} | Class: ${studentProfile.cls}
+  `;
+}
 
 // ==================== CHAT SEND ====================
 sendBtn.addEventListener("click", async () => {
@@ -87,7 +104,7 @@ sendBtn.addEventListener("click", async () => {
 function addMessage(sender, text) {
   const div = document.createElement("div");
   div.className = "message " + (sender === "user" ? "userMsg" : "botMsg");
-  const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
   div.innerHTML = `<strong>[${sender === "user" ? "You" : "Bot"} - ${time}]</strong>: ${text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -110,7 +127,7 @@ function registerWarning() {
   warnings[key] = (warnings[key] || 0) + 1;
   localStorage.setItem("warnings", JSON.stringify(warnings));
 
-  // Auto-lock after 3 violations
+  // Auto-lock after 3 violations (or admin setting)
   const autoLockSetting = localStorage.getItem("autoLock") || "After 3 violations";
   const threshold = autoLockSetting.includes("5") ? 5 : 3;
 
@@ -121,6 +138,7 @@ function registerWarning() {
 }
 
 function displayWarningsCount() {
+  if (!studentProfile) return;
   const key = studentProfile.roll;
   const count = warnings[key] || 0;
   statusMsg.textContent = count ? `⚠️ Warnings: ${count}` : "";
@@ -165,11 +183,23 @@ bgColorInput?.addEventListener("change", (e) => {
   applyBackgroundColor();
 });
 
-// ==================== LOAD CHAT HISTORY ====================
+// ==================== CHAT HISTORY ====================
 function loadChatHistory() {
   const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
   history.forEach(m => addMessage(m.sender, m.text));
 }
+
+// ==================== RESET PROFILE / CLEAR CHAT ====================
+resetProfileBtn?.addEventListener("click", () => {
+  localStorage.removeItem("studentProfile");
+  localStorage.removeItem("chatHistory");
+  location.reload();
+});
+
+clearChatBtn?.addEventListener("click", () => {
+  localStorage.removeItem("chatHistory");
+  chatBox.innerHTML = "";
+});
 
 // ==================== INIT ====================
 window.onload = () => {
@@ -177,4 +207,5 @@ window.onload = () => {
   applyBackgroundColor();
   loadChatHistory();
   displayWarningsCount();
+  displayStudentInfo();
 };
