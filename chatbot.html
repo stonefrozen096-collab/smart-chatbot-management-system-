@@ -17,7 +17,6 @@
     color: #fff;
     transition: background 0.5s;
   }
-
   .container {
     width: 400px;
     max-width: 95%;
@@ -29,7 +28,6 @@
     flex-direction: column;
     height: 600px;
   }
-
   #chatBox {
     flex: 1;
     overflow-y: auto;
@@ -39,7 +37,6 @@
     margin-bottom: 10px;
     background: rgba(0,0,0,0.1);
   }
-
   .message {
     margin: 5px 0;
     padding: 8px 12px;
@@ -47,93 +44,24 @@
     max-width: 80%;
     word-wrap: break-word;
   }
-
   .userMsg { background: #3b82f6; align-self: flex-end; }
   .botMsg { background: #60a5fa; align-self: flex-start; }
-
-  #inputSection {
-    display: flex;
-    gap: 10px;
-  }
-
-  #chatInput {
-    flex: 1;
-    padding: 10px;
-    border-radius: 10px;
-    border: none;
-    outline: none;
-  }
-
-  #sendBtn {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 10px;
-    background: #22c55e;
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  #profileSection {
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  input, select {
-    padding: 10px;
-    border-radius: 8px;
-    border: none;
-    outline: none;
-  }
-
-  #profileBtn, #resetProfileBtn {
-    padding: 10px;
-    background: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-  }
-
-  #statusMsg {
-    color: yellow;
-    margin: 5px 0;
-  }
-
-  #studentInfo {
-    margin-bottom: 10px;
-    font-size: 14px;
-    color: #e0f7ff;
-  }
+  #inputSection { display: flex; gap: 10px; }
+  #chatInput { flex: 1; padding: 10px; border-radius: 10px; border: none; outline: none; }
+  #sendBtn { padding: 10px 15px; border: none; border-radius: 10px; background: #22c55e; cursor: pointer; font-weight: 600; }
+  #studentInfo { margin-bottom: 10px; font-size: 14px; color: #e0f7ff; }
+  #statusMsg { color: yellow; margin: 5px 0; }
 </style>
 </head>
 <body>
+
 <div class="container" id="chatContainer">
   <h2>Nandha Chatbot</h2>
   <div id="statusMsg"></div>
-
-  <!-- Profile Form -->
-  <div id="profileSection">
-    <h3>Fill Your Profile First</h3>
-    <input type="text" id="studentName" placeholder="Full Name" autocomplete="off">
-    <input type="text" id="studentRoll" placeholder="Roll Number" autocomplete="off">
-    <select id="studentDept">
-      <option value="">Select Department</option>
-      <option value="CSE">CSE</option>
-      <option value="ECE">ECE</option>
-    </select>
-    <select id="studentClass">
-      <option value="">Select Class</option>
-      <option value="3rd Year">3rd Year</option>
-      <option value="2nd Year">2nd Year</option>
-    </select>
-    <button id="profileBtn">Save Profile</button>
-    <button id="resetProfileBtn" style="background:#ef4444;">Reset Profile</button>
-  </div>
+  <div id="studentInfo"></div>
 
   <!-- Chat Section -->
-  <div id="chatSection" style="display:none; flex-direction: column; height:100%;">
-    <div id="studentInfo"></div>
+  <div id="chatSection" style="flex-direction: column; height:100%;">
     <div id="chatBox"></div>
     <div id="inputSection">
       <input type="text" id="chatInput" placeholder="Type your question..." autocomplete="off" />
@@ -142,25 +70,67 @@
   </div>
 </div>
 
-<script src="chatbot.js"></script>
 <script>
-  // Reset profile logic
-  const resetBtn = document.getElementById("resetProfileBtn");
-  resetBtn.addEventListener("click", () => {
-    localStorage.removeItem("studentProfile");
-    location.reload();
-  });
+const API_URL = ""; // Set your server API URL
+const token = localStorage.getItem("token"); // JWT from login
+let studentProfile = JSON.parse(localStorage.getItem("userProfile")) || null;
 
-  // Display student info in header
-  function showStudentInfo() {
-    const studentProfile = JSON.parse(localStorage.getItem("studentProfile"));
-    if (studentProfile) {
-      document.getElementById("studentInfo").textContent =
-        `Name: ${studentProfile.name} | Roll: ${studentProfile.roll} | Dept: ${studentProfile.dept} | Class: ${studentProfile.cls}`;
-    }
+if (!token || !studentProfile) {
+  alert("Not logged in! Redirecting to login page.");
+  window.location.href = "login.html";
+}
+
+// Display profile info
+function displayStudentInfo() {
+  if (!studentProfile) return;
+  document.getElementById("studentInfo").textContent =
+    `Name: ${studentProfile.name} | Roll: ${studentProfile.roll} | Dept: ${studentProfile.dept} | Class: ${studentProfile.cls}`;
+}
+
+// ==================== CHAT ====================
+const chatBox = document.getElementById("chatBox");
+const chatInput = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
+
+sendBtn.addEventListener("click", sendMessage);
+
+async function sendMessage() {
+  const message = chatInput.value.trim();
+  if (!message) return;
+
+  addMessage("user", message);
+  chatInput.value = "";
+
+  try {
+    const res = await fetch(`${API_URL}/api/chat`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ prompt: message })
+    });
+    const data = await res.json();
+    addMessage("bot", data.answer || "No response from chatbot.");
+  } catch (err) {
+    console.error(err);
+    addMessage("bot", "Error connecting to server.");
   }
+}
 
-  showStudentInfo();
+function addMessage(sender, text) {
+  const div = document.createElement("div");
+  div.className = "message " + (sender === "user" ? "userMsg" : "botMsg");
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
+  div.innerHTML = `<strong>[${sender === "user" ? "You" : "Bot"} - ${time}]</strong>: ${text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// ==================== INIT ====================
+window.onload = () => {
+  displayStudentInfo();
+};
 </script>
 </body>
 </html>
