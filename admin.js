@@ -1,5 +1,5 @@
 /* ===============================
-   ADMIN PANEL – FRONTEND LOGIC
+   ADMIN PANEL – FRONTEND LOGIC (API Connected)
 =============================== */
 
 /* ========== SECTION SWITCHING ========== */
@@ -15,7 +15,7 @@ function logout() {
 }
 
 /* =====================================================
-   COURSE PLAN UPLOAD (Server API)
+   COURSE PLAN UPLOAD
 ===================================================== */
 async function uploadPlan() {
     const fileInput = document.getElementById("fileInput");
@@ -34,7 +34,7 @@ async function uploadPlan() {
         });
         const data = await res.json();
         alert("Course plan uploaded!");
-        displayPlans();
+        await displayPlans();
     } catch (err) {
         console.error(err);
         alert("Failed to upload course plan.");
@@ -48,7 +48,7 @@ async function displayPlans() {
         const table = document.querySelector("#course table");
 
         table.innerHTML = `<tr><th>File</th><th>Date</th><th>Action</th></tr>`;
-        plans.forEach((p, i) => {
+        plans.forEach((p) => {
             table.innerHTML += `
                 <tr>
                     <td>${p.name}</td>
@@ -65,7 +65,7 @@ async function displayPlans() {
 async function deletePlan(id) {
     try {
         await fetch(`/api/course-plans/${id}`, { method: "DELETE" });
-        displayPlans();
+        await displayPlans();
     } catch (err) {
         console.error(err);
         alert("Failed to delete course plan.");
@@ -76,12 +76,20 @@ async function deletePlan(id) {
    GLOBAL CHAT LOCK / UNLOCK
 ===================================================== */
 async function globalLock() {
-    await fetch("/api/chat/lock/global", { method: "POST", body: JSON.stringify({ state: "locked" }), headers: { "Content-Type": "application/json" } });
+    await fetch("/api/chat/lock/global", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: "locked" })
+    });
     alert("Global chat locked!");
 }
 
 async function globalUnlock() {
-    await fetch("/api/chat/lock/global", { method: "POST", body: JSON.stringify({ state: "unlocked" }), headers: { "Content-Type": "application/json" } });
+    await fetch("/api/chat/lock/global", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: "unlocked" })
+    });
     alert("Global chat unlocked!");
 }
 
@@ -91,27 +99,29 @@ async function globalUnlock() {
 async function applySpecificLock() {
     const dept = document.getElementById("deptLock").value;
     const cls = document.getElementById("classLock").value;
-    const student = document.getElementById("studentLock").value;
+    const student = document.getElementById("studentLock").value || null;
 
     await fetch("/api/chat/lock/specific", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ department: dept, class: cls, student: student || null })
+        body: JSON.stringify({ department: dept, class: cls, student })
     });
 
-    alert("Lock applied successfully!");
+    alert("Specific lock applied!");
 }
 
 /* =====================================================
    AUTO-LOCK SETTINGS
 ===================================================== */
 async function saveAutoLock() {
-    const value = document.getElementById("autoLockSelect").value;
+    const threshold = document.getElementById("autoLockSelect").value;
+
     await fetch("/api/chat/auto-lock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threshold: value })
+        body: JSON.stringify({ threshold })
     });
+
     alert("Auto-lock updated!");
 }
 
@@ -124,7 +134,8 @@ async function addWarning(student, msg) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ student, message: msg })
     });
-    displayWarnings();
+
+    await displayWarnings();
 }
 
 async function displayWarnings() {
@@ -151,6 +162,27 @@ async function displayWarnings() {
 /* =====================================================
    USER MANAGEMENT (Search + Status)
 ===================================================== */
+async function loadUsers() {
+    try {
+        const res = await fetch("/api/users");
+        const users = await res.json();
+        const table = document.querySelector("#users table");
+
+        table.innerHTML = `<tr><th>Name</th><th>Email</th><th>Role</th></tr>`;
+        users.forEach(u => {
+            table.innerHTML += `
+                <tr>
+                    <td>${u.name}</td>
+                    <td>${u.email}</td>
+                    <td>${u.role}</td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 function searchUsers() {
     const input = document.querySelector("#users input").value.toLowerCase();
     document.querySelectorAll("#users table tr").forEach((row, i) => {
@@ -163,7 +195,8 @@ function searchUsers() {
 /* =====================================================
    INIT
 ===================================================== */
-window.onload = () => {
-    displayPlans();
-    displayWarnings();
+window.onload = async () => {
+    await displayPlans();
+    await displayWarnings();
+    await loadUsers();
 };
