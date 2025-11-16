@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Settings — Nandha Chatbot</title>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Poppins", sans-serif;
+      height: 100vh;
+      background: linear-gradient(135deg, #0077ff, #00d4ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+    }
+
+    .container {
+      width: 420px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      padding: 35px;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+
+    .setting-section {
+      margin-bottom: 25px;
+    }
+
+    label {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    select, input[type="checkbox"] {
+      margin-top: 10px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      background: rgba(255,255,255,0.9);
+      color: #000;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      background: #005eff;
+      color: white;
+      transition: 0.3s;
+    }
+
+    .btn:hover {
+      background: #00bfff;
+    }
+
+    .danger {
+      background: #ff4444;
+    }
+
+    .danger:hover {
+      background: #ff7777;
+    }
+
+    #saveMsg {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>Settings</h2>
+
+    <!-- THEME -->
+    <div class="setting-section">
+      <label>Theme</label>
+      <select id="theme">
+        <option value="system">System Default</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+
+    <!-- FONT SIZE -->
+    <div class="setting-section">
+      <label>Chat Font Size</label>
+      <select id="fontSize">
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="setting-section">
+      <div class="toggle-row">
+        <label>Enable Notifications</label>
+        <input type="checkbox" id="notifications">
+      </div>
+    </div>
+
+    <!-- SAFE MODE -->
+    <div class="setting-section">
+      <div class="toggle-row">
+        <label>Safe Mode (Strict AI Output)</label>
+        <input type="checkbox" id="safeMode">
+      </div>
+    </div>
+
+    <button class="btn" id="saveBtn">Save Settings</button>
+    <p id="saveMsg"></p>
+
+    <button class="btn danger" id="deleteAccountBtn">Delete Account</button>
+    <button class="btn" id="logoutBtn">Logout</button>
+
+  </div>
+
+  <script>
+    const token = localStorage.getItem("authToken");
+    if (!token) window.location.href = "login.html";
+
+    async function loadSettings() {
+      try {
+        const res = await fetch("/api/user/settings", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+        if (!data.settings) return;
+
+        document.getElementById("theme").value = data.settings.theme;
+        document.getElementById("fontSize").value = data.settings.fontSize;
+        document.getElementById("notifications").checked = data.settings.notifications;
+        document.getElementById("safeMode").checked = data.settings.safeMode;
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadSettings();
+
+    // Save settings
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const body = {
+        theme: document.getElementById("theme").value,
+        fontSize: document.getElementById("fontSize").value,
+        notifications: document.getElementById("notifications").checked,
+        safeMode: document.getElementById("safeMode").checked
+      };
+
+      const res = await fetch("/api/user/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const out = await res.json();
+
+      const msg = document.getElementById("saveMsg");
+      msg.style.color = res.ok ? "lightgreen" : "salmon";
+      msg.textContent = res.ok ? "✔ Settings saved!" : out.error;
+    });
+
+    // Delete account
+    document.getElementById("deleteAccountBtn").addEventListener("click", async () => {
+      if (!confirm("Are you sure? This will permanently delete your account.")) return;
+
+      const res = await fetch("/api/user/delete", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        localStorage.clear();
+        alert("Account deleted.");
+        window.location.href = "signup.html";
+      }
+    });
+
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.clear();
+      window.location.href = "login.html";
+    });
+  </script>
+
+</body>
+</html>
