@@ -225,13 +225,8 @@
 
 </div>
 
-<script src="admin-api.js"></script>
+<script src="admin.js"></script>
 <script>
-    // Show/hide sections
-    function showSection(id) {
-        document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-        document.getElementById(id).classList.add("active");
-    }
 
     // Logout securely
     function logout() {
@@ -240,7 +235,7 @@
             .catch(() => window.location.href = "/login.html");
     }
 
-    // Attach buttons to API.js functions
+    // Attach buttons to secure admin.js functions
     document.getElementById("uploadPlanBtn").addEventListener("click", uploadPlan);
     document.getElementById("lockAllBtn").addEventListener("click", globalLock);
     document.getElementById("unlockAllBtn").addEventListener("click", globalUnlock);
@@ -250,13 +245,10 @@
     // Search users
     document.getElementById("userSearchInput").addEventListener("input", searchUsers);
 
-    // Load initial data securely
+    // Load initial secure data
     window.onload = async () => {
         await displayPlans();
         await displayWarnings();
         await loadUsers();
-    }
+    };
 </script>
-
-</body>
-</html>
