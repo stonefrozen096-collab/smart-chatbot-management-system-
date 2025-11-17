@@ -3,13 +3,28 @@
 ===================================================== */
 
 const API_BASE = "https://smart-chatbot-backend-w5tq.onrender.com";
+
 /* =====================================================
    AUTH (Login / Register / Profile)
 ===================================================== */
+
+// CSRF token fetcher (REQUIRED!)
+async function getCSRF() {
+    const res = await fetch(`${API_BASE}/api/csrf-token`, {
+        credentials: "include"
+    });
+    return (await res.json()).csrfToken;
+}
+
 export async function login(email, password) {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const csrf = await getCSRF();
+
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "x-csrf-token": csrf
+        },
         credentials: "include",
         body: JSON.stringify({ email, password })
     });
@@ -17,9 +32,14 @@ export async function login(email, password) {
 }
 
 export async function register(user) {
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const csrf = await getCSRF();
+
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "x-csrf-token": csrf
+        },
         credentials: "include",
         body: JSON.stringify(user)
     });
@@ -27,7 +47,7 @@ export async function register(user) {
 }
 
 export async function getProfile() {
-    const res = await fetch(`${API_BASE}/auth/me`, {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
         credentials: "include"
     });
     return res.json();
@@ -40,7 +60,7 @@ export async function uploadCoursePlan(file) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch(`${API_BASE}/admin/course-plans`, {
+    const res = await fetch(`${API_BASE}/api/admin/course-plans`, {
         method: "POST",
         credentials: "include",
         body: formData
@@ -49,14 +69,14 @@ export async function uploadCoursePlan(file) {
 }
 
 export async function fetchCoursePlans() {
-    const res = await fetch(`${API_BASE}/admin/course-plans`, {
+    const res = await fetch(`${API_BASE}/api/admin/course-plans`, {
         credentials: "include"
     });
     return res.json();
 }
 
 export async function deleteCoursePlan(id) {
-    const res = await fetch(`${API_BASE}/admin/course-plans/${id}`, {
+    const res = await fetch(`${API_BASE}/api/admin/course-plans/${id}`, {
         method: "DELETE",
         credentials: "include"
     });
@@ -67,7 +87,7 @@ export async function deleteCoursePlan(id) {
    CHAT LOCK SYSTEM — Admin Only
 ===================================================== */
 export async function setGlobalLock(state) {
-    const res = await fetch(`${API_BASE}/admin/chat/lock/global`, {
+    const res = await fetch(`${API_BASE}/api/admin/chat/lock/global`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -77,7 +97,7 @@ export async function setGlobalLock(state) {
 }
 
 export async function setSpecificLock(data) {
-    const res = await fetch(`${API_BASE}/admin/chat/lock/specific`, {
+    const res = await fetch(`${API_BASE}/api/admin/chat/lock/specific`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -87,7 +107,7 @@ export async function setSpecificLock(data) {
 }
 
 export async function setAutoLock(threshold) {
-    const res = await fetch(`${API_BASE}/admin/chat/auto-lock`, {
+    const res = await fetch(`${API_BASE}/api/admin/chat/auto-lock`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -100,7 +120,7 @@ export async function setAutoLock(threshold) {
    WARNINGS — Admin Only
 ===================================================== */
 export async function addWarning(student, message) {
-    const res = await fetch(`${API_BASE}/admin/warnings`, {
+    const res = await fetch(`${API_BASE}/api/admin/warnings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -110,7 +130,7 @@ export async function addWarning(student, message) {
 }
 
 export async function fetchWarnings() {
-    const res = await fetch(`${API_BASE}/admin/warnings`, {
+    const res = await fetch(`${API_BASE}/api/admin/warnings`, {
         credentials: "include"
     });
     return res.json();
@@ -120,27 +140,29 @@ export async function fetchWarnings() {
    CHATBOT — Students
 ===================================================== */
 export async function askChatbot(prompt) {
-    const res = await fetch(`${API_BASE}/chatbot/ask`, {
+    const res = await fetch(`${API_BASE}/api/chatbot/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ prompt })
     });
-    return (await res.json()).answer || "No response";
+
+    const data = await res.json();
+    return data.answer || "No response";
 }
 
 /* =====================================================
    NOTICES — Admin
 ===================================================== */
 export async function fetchNotices() {
-    const res = await fetch(`${API_BASE}/admin/notices`, {
+    const res = await fetch(`${API_BASE}/api/admin/notices`, {
         credentials: "include"
     });
     return res.json();
 }
 
 export async function createNotice(payload) {
-    const res = await fetch(`${API_BASE}/admin/notices`, {
+    const res = await fetch(`${API_BASE}/api/admin/notices`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -150,7 +172,7 @@ export async function createNotice(payload) {
 }
 
 export async function updateNotice(id, payload) {
-    const res = await fetch(`${API_BASE}/admin/notices/${id}`, {
+    const res = await fetch(`${API_BASE}/api/admin/notices/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -160,7 +182,7 @@ export async function updateNotice(id, payload) {
 }
 
 export async function deleteNotice(id) {
-    const res = await fetch(`${API_BASE}/admin/notices/${id}`, {
+    const res = await fetch(`${API_BASE}/api/admin/notices/${id}`, {
         method: "DELETE",
         credentials: "include"
     });
@@ -171,7 +193,7 @@ export async function deleteNotice(id) {
    USERS — Admin Only
 ===================================================== */
 export async function fetchUsers() {
-    const res = await fetch(`${API_BASE}/admin/users`, {
+    const res = await fetch(`${API_BASE}/api/admin/users`, {
         credentials: "include"
     });
     return res.json();
@@ -189,14 +211,14 @@ export async function searchUsers(query) {
    BADGES — Admin
 ===================================================== */
 export async function fetchBadges() {
-    const res = await fetch(`${API_BASE}/admin/badges`, {
+    const res = await fetch(`${API_BASE}/api/admin/badges`, {
         credentials: "include"
     });
     return res.json();
 }
 
 export async function createBadge(payload) {
-    const res = await fetch(`${API_BASE}/admin/badges`, {
+    const res = await fetch(`${API_BASE}/api/admin/badges`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -206,7 +228,7 @@ export async function createBadge(payload) {
 }
 
 export async function assignBadge(email, badgeId) {
-    const res = await fetch(`${API_BASE}/admin/badges/assign`, {
+    const res = await fetch(`${API_BASE}/api/admin/badges/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
