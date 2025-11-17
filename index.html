@@ -121,6 +121,19 @@
 <script>
 const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
 
+let csrfToken = "";
+
+// Fetch real CSRF token
+async function loadCSRF() {
+  const r = await fetch(`${API_URL}/api/csrf-token`, {
+    method: "GET",
+    credentials: "include"
+  });
+  const d = await r.json();
+  csrfToken = d.csrfToken;
+}
+loadCSRF();
+
 // Escape input to prevent XSS
 function sanitize(str) {
   return str.replace(/[<>&"']/g, c => ({
@@ -153,27 +166,30 @@ function showLogin() {
 
 /* ---------------- LOGIN ---------------- */
 loginBtn.addEventListener("click", async () => {
-  const email = sanitize(loginEmail.value.trim());
+  const roll = sanitize(loginRoll.value.trim());
   const password = sanitize(loginPassword.value.trim());
   const error = loginError;
 
   error.textContent = "";
 
-  if (!email || !password) return error.textContent = "All fields required!";
-  if (!validEmail(email)) return error.textContent = "Invalid email format!";
+  if (!roll || !password)
+    return error.textContent = "All fields required!";
 
   try {
     const res = await fetch(`${API_URL}/api/login`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRF-Token": crypto.randomUUID()
+        "X-CSRF-Token": csrfToken
       },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ roll, password })
     });
 
     const data = await res.json();
-    if (!data.success) return error.textContent = data.error || "Login failed";
+
+    if (!data.success)
+      return error.textContent = data.error || "Login failed";
 
     sessionStorage.setItem("token", data.token);
     sessionStorage.setItem("userProfile", JSON.stringify(data.user));
@@ -200,32 +216,40 @@ signupBtn.addEventListener("click", async () => {
   if (!name || !roll || !dept || !cls || !email || !password)
     return error.textContent = "All fields required!";
 
-  if (!validEmail(email)) return error.textContent = "Invalid email!";
+  if (!validEmail(email))
+    return error.textContent = "Invalid email!";
+
   if (!strongPassword(password))
-    return error.textContent = "Password must be 8+ chars, include number & uppercase!";
-  if (password !== confirm) return error.textContent = "Passwords do not match!";
+    return error.textContent =
+      "Password must be 8+ chars, include number & uppercase!";
+
+  if (password !== confirm)
+    return error.textContent = "Passwords do not match!";
 
   try {
     const res = await fetch(`${API_URL}/api/register`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRF-Token": crypto.randomUUID()
+        "X-CSRF-Token": csrfToken
       },
-      body: JSON.stringify({ name, roll, dept, cls, email, password, role: "student" })
+      body: JSON.stringify({
+        name, roll, dept, cls, email, password, role: "student"
+      })
     });
 
     const data = await res.json();
-    if (!data.success) return error.textContent = data.error || "Signup failed";
+
+    if (!data.success)
+      return error.textContent = data.error || "Signup failed";
 
     alert("Signup successful! Please login.");
     showLogin();
-
   } catch {
     error.textContent = "Server error, try later.";
   }
 });
 </script>
-
 </body>
 </html>
