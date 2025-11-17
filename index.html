@@ -227,7 +227,7 @@ signupBtn.addEventListener("click", async () => {
     return error.textContent = "Passwords do not match!";
 
   try {
-    const res = await fetch(`${API_URL}/api/register`, {
+    const res = await fetch(`${API_URL}/api/auth/register`, {
       method: "POST",
       credentials: "include",
       headers: {
