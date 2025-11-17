@@ -18,12 +18,12 @@
     color: #fff;
   }
 
-  /* Floating feathers */
   @keyframes floatFeather {
     0% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
     50% { opacity: 1; }
     100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
   }
+
   .feather {
     position: absolute;
     bottom: -10%;
@@ -57,10 +57,7 @@
     font-size: 15px;
   }
 
-  input {
-    background: rgba(255,255,255,0.9);
-  }
-
+  input { background: rgba(255,255,255,0.9); }
   button {
     background: #0077ff;
     color: white;
@@ -68,11 +65,7 @@
     cursor: pointer;
     transition: 0.3s;
   }
-
-  button:hover {
-    background: #00bfff;
-    transform: translateY(-2px);
-  }
+  button:hover { background: #00bfff; transform: translateY(-2px); }
 
   .toggle-link { cursor: pointer; text-decoration: underline; }
   .error-msg { color: #ffcccb; font-size: 13px; }
@@ -82,7 +75,6 @@
 </head>
 
 <body>
-  <!-- Floating feathers -->
   <div class="feather"></div><div class="feather"></div><div class="feather"></div><div class="feather"></div><div class="feather"></div>
 
   <div class="container">
@@ -90,18 +82,13 @@
     <p class="tagline">Your academic assistant, powered by smart course-aware AI</p>
 
     <!-- LOGIN -->
-<section id="loginSection">
-  <div class="error-msg" id="loginError"></div>
-  
-  <!-- Use roll instead of email -->
-  <input type="text" id="loginRoll" placeholder="Roll Number" autocomplete="off">
-  
-  <input type="password" id="loginPassword" placeholder="Password" autocomplete="new-password">
-  
-  <button id="loginBtn">Login</button>
-  
-  <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
-</section>
+    <section id="loginSection">
+      <div class="error-msg" id="loginError"></div>
+      <input type="text" id="loginRoll" placeholder="Roll Number" autocomplete="off">
+      <input type="password" id="loginPassword" placeholder="Password" autocomplete="new-password">
+      <button id="loginBtn">Login</button>
+      <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
+    </section>
 
     <!-- SIGNUP -->
     <section id="signupSection">
@@ -120,10 +107,9 @@
 
 <script>
 const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
-
 let csrfToken = "";
 
-// Fetch real CSRF token
+// -------------------- CSRF --------------------
 async function loadCSRF() {
   const r = await fetch(`${API_URL}/api/csrf-token`, {
     method: "GET",
@@ -131,21 +117,16 @@ async function loadCSRF() {
   });
   const d = await r.json();
   csrfToken = d.csrfToken;
+  return csrfToken;
 }
-loadCSRF();
 
-// Escape input to prevent XSS
+// -------------------- UTIL --------------------
 function sanitize(str) {
   return str.replace(/[<>&"']/g, c => ({
-    "<": "&lt;",
-    ">": "&gt;",
-    "&": "&amp;",
-    '"': "&quot;",
-    "'": "&#39;"
+    "<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;", "'":"&#39;"
   }[c]));
 }
 
-// strong email & password validation
 function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -164,18 +145,18 @@ function showLogin() {
   loginSection.style.display = "block";
 }
 
-/* ---------------- LOGIN ---------------- */
+// -------------------- LOGIN --------------------
 loginBtn.addEventListener("click", async () => {
   const roll = sanitize(loginRoll.value.trim());
   const password = sanitize(loginPassword.value.trim());
   const error = loginError;
-
   error.textContent = "";
 
-  if (!roll || !password)
-    return error.textContent = "All fields required!";
+  if (!roll || !password) return error.textContent = "All fields required!";
 
   try {
+    await loadCSRF(); // fetch fresh token
+
     const res = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
       credentials: "include",
@@ -187,12 +168,10 @@ loginBtn.addEventListener("click", async () => {
     });
 
     const data = await res.json();
+    if (data.error) return error.textContent = data.error;
 
-    if (!data.success)
-      return error.textContent = data.error || "Login failed";
-
-    sessionStorage.setItem("token", data.token);
-    sessionStorage.setItem("userProfile", JSON.stringify(data.user));
+    sessionStorage.setItem("token", data.accessToken);
+    sessionStorage.setItem("userProfile", JSON.stringify(data.student));
 
     window.location.href = "chat.html";
   } catch {
@@ -200,7 +179,7 @@ loginBtn.addEventListener("click", async () => {
   }
 });
 
-/* ---------------- SIGNUP ---------------- */
+// -------------------- SIGNUP --------------------
 signupBtn.addEventListener("click", async () => {
   const name = sanitize(signupName.value.trim());
   const roll = sanitize(signupRoll.value.trim());
@@ -209,24 +188,18 @@ signupBtn.addEventListener("click", async () => {
   const email = sanitize(signupEmail.value.trim());
   const password = sanitize(signupPassword.value.trim());
   const confirm = sanitize(signupConfirmPassword.value.trim());
-
   const error = signupError;
   error.textContent = "";
 
   if (!name || !roll || !dept || !cls || !email || !password)
     return error.textContent = "All fields required!";
-
-  if (!validEmail(email))
-    return error.textContent = "Invalid email!";
-
-  if (!strongPassword(password))
-    return error.textContent =
-      "Password must be 8+ chars, include number & uppercase!";
-
-  if (password !== confirm)
-    return error.textContent = "Passwords do not match!";
+  if (!validEmail(email)) return error.textContent = "Invalid email!";
+  if (!strongPassword(password)) return error.textContent = "Password must be 8+ chars, include number & uppercase!";
+  if (password !== confirm) return error.textContent = "Passwords do not match!";
 
   try {
+    await loadCSRF(); // fetch fresh token
+
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: "POST",
       credentials: "include",
@@ -234,15 +207,11 @@ signupBtn.addEventListener("click", async () => {
         "Content-Type": "application/json",
         "x-csrf-token": csrfToken
       },
-      body: JSON.stringify({
-        name, roll, dept, cls, email, password, role: "student"
-      })
+      body: JSON.stringify({ name, roll, dept, cls, email, password, role: "student" })
     });
 
     const data = await res.json();
-
-    if (!data.success)
-      return error.textContent = data.error || "Signup failed";
+    if (data.error) return error.textContent = data.error;
 
     alert("Signup successful! Please login.");
     showLogin();
