@@ -75,6 +75,7 @@
 </head>
 
 <body>
+  <!-- Feather animations -->
   <div class="feather"></div><div class="feather"></div><div class="feather"></div><div class="feather"></div><div class="feather"></div>
 
   <div class="container">
@@ -84,7 +85,7 @@
     <!-- LOGIN -->
     <section id="loginSection">
       <div class="error-msg" id="loginError"></div>
-      <input type="text" id="loginRoll" placeholder="Roll Number" autocomplete="off">
+      <input type="text" id="loginRoll" placeholder="Roll Number or Admin ID" autocomplete="off">
       <input type="password" id="loginPassword" placeholder="Password" autocomplete="new-password">
       <button id="loginBtn">Login</button>
       <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
@@ -170,10 +171,17 @@ loginBtn.addEventListener("click", async () => {
     const data = await res.json();
     if (data.error) return error.textContent = data.error;
 
+    // Save token and user info
     sessionStorage.setItem("token", data.accessToken);
     sessionStorage.setItem("userProfile", JSON.stringify(data.student));
 
-    window.location.href = "chatbot.html";
+    // Redirect based on role
+    if (data.student.role === "admin") {
+      window.location.href = "admin-dashboard.html";
+    } else {
+      window.location.href = "chatbot.html";
+    }
+
   } catch {
     error.textContent = "Server error, try later.";
   }
