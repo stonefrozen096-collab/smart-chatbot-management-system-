@@ -90,13 +90,18 @@
     <p class="tagline">Your academic assistant, powered by smart course-aware AI</p>
 
     <!-- LOGIN -->
-    <section id="loginSection">
-      <div class="error-msg" id="loginError"></div>
-      <input type="email" id="loginEmail" placeholder="Email" autocomplete="off">
-      <input type="password" id="loginPassword" placeholder="Password" autocomplete="new-password">
-      <button id="loginBtn">Login</button>
-      <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
-    </section>
+<section id="loginSection">
+  <div class="error-msg" id="loginError"></div>
+  
+  <!-- Use roll instead of email -->
+  <input type="text" id="loginRoll" placeholder="Roll Number" autocomplete="off">
+  
+  <input type="password" id="loginPassword" placeholder="Password" autocomplete="new-password">
+  
+  <button id="loginBtn">Login</button>
+  
+  <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
+</section>
 
     <!-- SIGNUP -->
     <section id="signupSection">
