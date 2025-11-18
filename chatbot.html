@@ -100,8 +100,8 @@
 
 <script>
 const API_URL = "/api";
-const token = localStorage.getItem("token");
-let studentProfile = JSON.parse(localStorage.getItem("userProfile")) || null;
+const token = sessionStorage.getItem("token");
+let studentProfile = JSON.parse(sessionStorage.getItem("userProfile")) || null;
 
 if (!token || !studentProfile) {
   alert("Session expired! Please login again.");
