@@ -1,7 +1,7 @@
 // ==================== CONFIG ====================
 const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
 let TOKEN = "";     // Should be set by login.html after successful login
-
+let csrfToken = "";
 // Block execution if TOKEN is missing (hard security)
 function ensureToken() {
   if (!TOKEN) {
@@ -44,7 +44,7 @@ async function secureFetch(url, options = {}) {
 
   // Make sure CSRF token is fetched
   if (!csrfToken) {
-    const r = await fetch(`${API_URL}/api/csrf-token`, {
+    const r = await fetch(`${API_URL}/csrf-token`, {
       method: "GET",
       credentials: "include"
     });
@@ -230,7 +230,7 @@ async function askGemini(prompt) {
     });
 
     const data = await res.json();
-    return data.answer || "No response from AI.";
+    return data.assistantReply || data.answer || "No response from AI.";
   } catch {
     return "Error contacting chatbot server.";
   }
