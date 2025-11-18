@@ -476,13 +476,7 @@ app.post("/api/auth/login", csrfProtect, async (req, res) => {
     const accessToken = signAccessToken(student);
     const refreshToken = signRefreshToken(student, tokenId);
 
-    // set CSRF double-submit cookie (frontend should also store token)
-    const csrfToken = generateCsrfToken();
-    res.cookie("csrf_token", csrfToken, {
-      httpOnly: false,
-      sameSite: "lax",
-      secure: NODE_ENV === "production",
-    });
+
 
     res.json({
       accessToken,
