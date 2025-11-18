@@ -218,20 +218,23 @@ async function checkSpecificLockFromServer() {
 }
 // ==================== CHATBOT REQUEST ====================
 async function askGemini(prompt) {
+  if (!studentProfile) return "Error: Profile missing.";
+
   try {
-    const r = await fetch(`${API_URL}/api/csrf-token`, {
+    const data = await secureFetch(`${API_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roll: studentProfile.roll,
         sender: "user",
-        message: prompt
+        message: prompt,
+        useGemini: true
       })
-    });
+    }).then(res => res.json());
 
-    const data = await res.json();
     return data.assistantReply || data.answer || "No response from AI.";
-  } catch {
+  } catch (err) {
+    console.error("Chat error:", err);
     return "Error contacting chatbot server.";
   }
 }
