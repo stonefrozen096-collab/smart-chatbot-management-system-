@@ -38,29 +38,35 @@ window.onload = async () => {
   await loadChatHistoryFromServer();
   await fetchWarnings();
 };
-
 // ==================== SECURE API WRAPPER ====================
 async function secureFetch(url, options = {}) {
   ensureToken();
 
+  // Read CSRF token stored by login.js
+  const csrfToken = localStorage.getItem("csrfToken");
+
   const opts = {
     ...options,
+    credentials: "include",   // IMPORTANT for cookies
     headers: {
       ...(options.headers || {}),
-      "Authorization": `Bearer ${TOKEN}`
+      "Authorization": `Bearer ${TOKEN}`,
+      "x-csrf-token": csrfToken || ""   // Send CSRF token to backend
     }
   };
 
   const res = await fetch(url, opts);
 
-  // Token expired → auto logout
+  // Token expired → force logout
   if (res.status === 401) {
     alert("Session expired. Please login again.");
     window.location.href = "index.html";
     return;
   }
+
   return res;
 }
+
 
 // ==================== PROFILE ====================
 async function loadProfileFromServer() {
