@@ -42,22 +42,28 @@ window.onload = async () => {
 async function secureFetch(url, options = {}) {
   ensureToken();
 
-  // Read CSRF token stored by login.js
-  const csrfToken = localStorage.getItem("csrfToken");
+  // Make sure CSRF token is fetched
+  if (!csrfToken) {
+    const r = await fetch(`${API_URL}/api/csrf-token`, {
+      method: "GET",
+      credentials: "include"
+    });
+    const d = await r.json();
+    csrfToken = d.csrfToken;
+  }
 
   const opts = {
     ...options,
-    credentials: "include",   // IMPORTANT for cookies
+    credentials: "include",
     headers: {
       ...(options.headers || {}),
       "Authorization": `Bearer ${TOKEN}`,
-      "x-csrf-token": csrfToken || ""   // Send CSRF token to backend
+      "x-csrf-token": csrfToken
     }
   };
 
   const res = await fetch(url, opts);
 
-  // Token expired → force logout
   if (res.status === 401) {
     alert("Session expired. Please login again.");
     window.location.href = "index.html";
@@ -66,7 +72,6 @@ async function secureFetch(url, options = {}) {
 
   return res;
 }
-
 
 // ==================== PROFILE ====================
 async function loadProfileFromServer() {
