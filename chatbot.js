@@ -216,14 +216,17 @@ async function checkSpecificLockFromServer() {
   const data = await res.json();
   return data.locked;
 }
-
-// ==================== GEMINI BACKEND ====================
+// ==================== CHATBOT REQUEST ====================
 async function askGemini(prompt) {
   try {
-    const res = await secureFetch(`${API_URL}/ask`, {
+    const res = await secureFetch(`${API_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({
+        roll: studentProfile.roll,
+        sender: "user",
+        message: prompt
+      })
     });
 
     const data = await res.json();
