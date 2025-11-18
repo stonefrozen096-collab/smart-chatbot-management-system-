@@ -7,13 +7,11 @@ const API_BASE = "https://smart-chatbot-backend-w5tq.onrender.com";
 let CSRF_TOKEN = null;
 
 // ---------------------- CSRF Handling ----------------------
-export async function getCSRF() {
-    if (CSRF_TOKEN) return CSRF_TOKEN;
+export function setCSRF(token) {
+    CSRF_TOKEN = token;
+}
 
-    const res = await fetch(`${API_BASE}/api/csrf-token`, {
-        credentials: "include"
-    });
-    CSRF_TOKEN = (await res.json()).csrfToken;
+export function getCSRF() {
     return CSRF_TOKEN;
 }
 
