@@ -250,405 +250,274 @@
 
   <!-- Optional: socket.io client (will try to connect for realtime updates) -->
   <script src="/socket.io/socket.io.js"></script>
-
   <script>
-    // ---------- CONFIG ----------
-    // Accept whichever key the other pages might set (index.html used localStorage.setItem("token", ...))
-    function readStoredToken() {
-      return localStorage.getItem('token') ||
-             localStorage.getItem('accessToken') ||
-             localStorage.getItem('authToken') ||
-             sessionStorage.getItem('token') ||
-             sessionStorage.getItem('accessToken') ||
-             sessionStorage.getItem('authToken') || null;
+  // ---------- CONFIG ----------
+  const API = "https://smart-chatbot-backend-w5tq.onrender.com"; // backend base URL
+
+  // Accept whichever key the other pages might set (index.html used localStorage.setItem("token", ...))
+  function readStoredToken() {
+    return localStorage.getItem('token') ||
+           localStorage.getItem('accessToken') ||
+           localStorage.getItem('authToken') ||
+           sessionStorage.getItem('token') ||
+           sessionStorage.getItem('accessToken') ||
+           sessionStorage.getItem('authToken') || null;
+  }
+
+  const token = readStoredToken();
+  if (!token) {
+    setTimeout(()=> location.href = 'login.html', 200);
+    throw new Error('Not authenticated');
+  }
+
+  function parseJwt(t) {
+    try {
+      const p = t.split('.')[1];
+      const json = atob(p.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(decodeURIComponent(escape(json)));
+    } catch (e) { 
+      try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; }
     }
+  }
+  const jwtPayload = parseJwt(token);
+  const userRoll = jwtPayload?.sub || jwtPayload?.roll || jwtPayload?.username || null;
 
-    const token = readStoredToken();
-    // If no token, redirect to login straight away
-    if (!token) {
-      // small timeout so the redirect doesn't feel abrupt in dev
-      setTimeout(()=> location.href = 'login.html', 200);
-      throw new Error('Not authenticated');
+  function authHeaders() {
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+
+  // ---------- DOM ----------
+  const displayName = document.getElementById('displayName');
+  const displayEmail = document.getElementById('displayEmail');
+  const displayRoll = document.getElementById('displayRoll');
+  const displayDept = document.getElementById('displayDept');
+  const avatarImg = document.getElementById('avatarImg');
+  const avatarFile = document.getElementById('avatarFile');
+  const avatarBtn = document.getElementById('avatarBtn');
+  const editProfileBtn = document.getElementById('editProfileBtn');
+  const openChatBtn = document.getElementById('openChatBtn');
+  const openChatBtn2 = document.getElementById('openChatBtn2');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+
+  const warningsContainer = document.getElementById('warningsContainer');
+  const lockState = document.getElementById('lockState');
+  const lockReason = document.getElementById('lockReason');
+  const lockMeta = document.getElementById('lockMeta');
+  const noticesList = document.getElementById('noticesList');
+
+  const totalChatsEl = document.getElementById('totalChats');
+  const weeklyChatsEl = document.getElementById('weeklyChats');
+  const lastChatEl = document.getElementById('lastChat');
+  const lastLoginEl = document.getElementById('lastLogin');
+  const profilePct = document.getElementById('profilePct');
+
+  // ---------- UTILS ----------
+  function svgInitialsDataUrl(initials) {
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
+          <rect fill='%23ffffff' width='100%' height='100%' rx='100'/>
+          <text x='50%' y='54%' font-size='72' text-anchor='middle' fill='%23000' font-family='Poppins'>${initials}</text>
+        </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  function showLocalAvatar() {
+    const stored = localStorage.getItem('avatarData');
+    if (stored) {
+      avatarImg.src = stored;
+    } else {
+      const initials = (displayName.textContent || 'U').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase();
+      avatarImg.src = svgInitialsDataUrl(initials);
     }
+  }
 
-    // Helper: decode JWT to get roll in payload 'sub' (robust)
-    function parseJwt(t) {
-      try {
-        const p = t.split('.')[1];
-        const json = atob(p.replace(/-/g, '+').replace(/_/g, '/'));
-        return JSON.parse(decodeURIComponent(escape(json)));
-      } catch (e) { 
-        // fallback attempt without decodeURIComponent
-        try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; }
-      }
-    }
-    const jwtPayload = parseJwt(token);
-    const userRoll = jwtPayload?.sub || jwtPayload?.roll || jwtPayload?.username || null;
+  avatarImg.addEventListener('error', () => { showLocalAvatar(); });
 
-    // Base headers (explicit)
-    function authHeaders() {
-      return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
-    }
+  function safeSet(el, text) { if (el) el.textContent = text ?? '—'; }
 
-    // ---------- DOM ----------
-    const displayName = document.getElementById('displayName');
-    const displayEmail = document.getElementById('displayEmail');
-    const displayRoll = document.getElementById('displayRoll');
-    const displayDept = document.getElementById('displayDept');
-    const avatarImg = document.getElementById('avatarImg');
-    const avatarFile = document.getElementById('avatarFile');
-    const avatarBtn = document.getElementById('avatarBtn');
-    const editProfileBtn = document.getElementById('editProfileBtn');
-    const openChatBtn = document.getElementById('openChatBtn');
-    const openChatBtn2 = document.getElementById('openChatBtn2');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const settingsBtn = document.getElementById('settingsBtn');
-
-    const warningsContainer = document.getElementById('warningsContainer');
-    const lockState = document.getElementById('lockState');
-    const lockReason = document.getElementById('lockReason');
-    const lockMeta = document.getElementById('lockMeta');
-    const noticesList = document.getElementById('noticesList');
-
-    const totalChatsEl = document.getElementById('totalChats');
-    const weeklyChatsEl = document.getElementById('weeklyChats');
-    const lastChatEl = document.getElementById('lastChat');
-    const lastLoginEl = document.getElementById('lastLogin');
-    const profilePct = document.getElementById('profilePct');
-
-    // ---------- UTILS ----------
-    function svgInitialsDataUrl(initials) {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
-            <rect fill='%23ffffff' width='100%' height='100%' rx='100'/>
-            <text x='50%' y='54%' font-size='72' text-anchor='middle' fill='%23000' font-family='Poppins'>${initials}</text>
-          </svg>`;
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-    }
-
-    function showLocalAvatar() {
-      const stored = localStorage.getItem('avatarData');
-      if (stored) {
-        avatarImg.src = stored;
+  // ---------- API CALLS ----------
+  async function fetchProfile() {
+    try {
+      let res;
+      if (userRoll) {
+        res = await fetch(`${API}/api/student/${encodeURIComponent(userRoll)}`, { headers: authHeaders() });
       } else {
-        // fallback initials (use first 2 letters from displayName once present)
-        const initials = (displayName.textContent || 'U').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase();
-        avatarImg.src = svgInitialsDataUrl(initials);
+        res = await fetch(`${API}/api/me`, { headers: authHeaders() });
       }
-    }
 
-    // If avatar fails to load (broken URL), fallback to local avatar or initials
-    avatarImg.addEventListener('error', () => {
-      showLocalAvatar();
-    });
+      if (res.status === 401 || res.status === 403) { handleLogoutRedirect(); return null; }
+      if (!res.ok) { safeSet(displayName, 'Unnamed'); safeSet(displayEmail, '—'); safeSet(displayRoll, 'Roll: —'); safeSet(displayDept, 'Dept: —'); showLocalAvatar(); return null; }
 
-    // Small safe setter to avoid leaving "Loading..."
-    function safeSet(el, text) {
-      if (!el) return;
-      el.textContent = text ?? '—';
-    }
+      const data = await res.json();
+      safeSet(displayName, data.name || data.roll || 'Unnamed');
+      safeSet(displayEmail, data.email || '—');
+      safeSet(displayRoll, 'Roll: ' + (data.roll || (userRoll || '—')));
+      safeSet(displayDept, 'Dept: ' + (data.dept || '—'));
+      lastLoginEl.textContent = new Date(data.updatedAt || data.createdAt || Date.now()).toLocaleString();
+      profilePct.textContent = calculateProfilePct(data) + '%';
 
-    // ---------- API CALLS ----------
-    async function fetchProfile() {
-      try {
-        // If we have roll from token, prefer student endpoint
-        let res;
-        if (userRoll) {
-          res = await fetch(`/api/student/${encodeURIComponent(userRoll)}`, { headers: authHeaders() });
-        } else {
-          // fallback to /api/me (if implemented)
-          res = await fetch(`/api/me`, { headers: authHeaders() });
-        }
+      if (data.avatarUrl) {
+        avatarImg.src = data.avatarUrl;
+        try { localStorage.setItem('avatarData', data.avatarUrl); } catch(e){}
+      } else showLocalAvatar();
 
-        if (res.status === 401 || res.status === 403) {
-          // token invalid/expired -> force login
-          console.warn('auth failed, redirecting to login', res.status);
-          handleLogoutRedirect();
-          return null;
-        }
-
-        if (!res.ok) {
-          console.warn('profile fetch not ok', res.status);
-          // set reasonable defaults and exit
-          safeSet(displayName, 'Unnamed');
-          safeSet(displayEmail, '—');
-          safeSet(displayRoll, 'Roll: —');
-          safeSet(displayDept, 'Dept: —');
-          showLocalAvatar();
-          return null;
-        }
-
-        const data = await res.json();
-        // normalize fields
-        safeSet(displayName, data.name || data.roll || 'Unnamed');
-        safeSet(displayEmail, data.email || '—');
-        safeSet(displayRoll, 'Roll: ' + (data.roll || (userRoll || '—')));
-        safeSet(displayDept, 'Dept: ' + (data.dept || '—'));
-        lastLoginEl.textContent = new Date(data.updatedAt || data.createdAt || Date.now()).toLocaleString();
-        profilePct.textContent = calculateProfilePct(data) + '%';
-
-        // avatarUrl if provided by backend
-        if (data.avatarUrl) {
-          avatarImg.src = data.avatarUrl;
-          try { localStorage.setItem('avatarData', data.avatarUrl); } catch(e){/* ignore storage errors */ }
-        } else {
-          showLocalAvatar();
-        }
-
-        // lock status
-        if (data.lockedUntil) {
-          const until = new Date(data.lockedUntil);
-          if (until > new Date()) {
-            lockState.textContent = 'Locked';
-            lockState.style.color = 'var(--danger)';
-            lockReason.textContent = `Until ${until.toLocaleString()}`;
-            lockMeta.innerHTML = `<div class="mutedSmall">Locked by system/admin. Penalties may apply.</div>`;
-          } else {
-            lockState.textContent = 'Unlocked';
-            lockState.style.color = 'var(--success)';
-            lockReason.textContent = '';
-            lockMeta.innerHTML = '';
-          }
+      if (data.lockedUntil) {
+        const until = new Date(data.lockedUntil);
+        if (until > new Date()) {
+          lockState.textContent = 'Locked';
+          lockState.style.color = 'var(--danger)';
+          lockReason.textContent = `Until ${until.toLocaleString()}`;
+          lockMeta.innerHTML = `<div class="mutedSmall">Locked by system/admin. Penalties may apply.</div>`;
         } else {
           lockState.textContent = 'Unlocked';
           lockState.style.color = 'var(--success)';
           lockReason.textContent = '';
           lockMeta.innerHTML = '';
         }
-
-        // warnings & other small things
-        renderWarningsFromProfile(data);
-
-        return data;
-      } catch (err) {
-        console.error('fetchProfile error', err);
-        // show fallback values
-        safeSet(displayName, 'Unnamed');
-        safeSet(displayEmail, '—');
-        safeSet(displayRoll, 'Roll: —');
-        safeSet(displayDept, 'Dept: —');
-        showLocalAvatar();
-        return null;
+      } else {
+        lockState.textContent = 'Unlocked';
+        lockState.style.color = 'var(--success)';
+        lockReason.textContent = '';
+        lockMeta.innerHTML = '';
       }
+
+      renderWarningsFromProfile(data);
+      return data;
+    } catch (err) {
+      console.error('fetchProfile error', err);
+      safeSet(displayName, 'Unnamed'); safeSet(displayEmail, '—'); safeSet(displayRoll, 'Roll: —'); safeSet(displayDept, 'Dept: —'); showLocalAvatar();
+      return null;
     }
+  }
 
-    async function fetchChatHistoryAndUsage() {
-      try {
-        if (!userRoll) {
-          totalChatsEl.textContent = '—';
-          weeklyChatsEl.textContent = '—';
-          lastChatEl.textContent = '—';
-          return;
-        }
-        const res = await fetch(`/api/chat/${encodeURIComponent(userRoll)}`, { headers: authHeaders() });
-        if (!res.ok) {
-          totalChatsEl.textContent = '—';
-          weeklyChatsEl.textContent = '—';
-          lastChatEl.textContent = '—';
-          return;
-        }
-        const history = await res.json();
-        const total = Array.isArray(history) ? history.length : 0;
-        const oneWeekAgo = Date.now() - 7*24*3600*1000;
-        const weekly = Array.isArray(history) ? history.filter(h => {
-          const d = new Date(h.createdAt || h.time || Date.now());
-          return d.getTime() > oneWeekAgo;
-        }).length : 0;
-        const last = (Array.isArray(history) && history[0]) ? new Date(history[0].createdAt || history[0].time || Date.now()).toLocaleString() : '—';
-        totalChatsEl.textContent = total;
-        weeklyChatsEl.textContent = weekly;
-        lastChatEl.textContent = last;
-      } catch (err) {
-        console.error('fetchChatHistory error', err);
-        totalChatsEl.textContent = '—';
-        weeklyChatsEl.textContent = '—';
-        lastChatEl.textContent = '—';
-      }
-    }
+  async function fetchChatHistoryAndUsage() {
+    try {
+      if (!userRoll) { totalChatsEl.textContent = '—'; weeklyChatsEl.textContent = '—'; lastChatEl.textContent = '—'; return; }
+      const res = await fetch(`${API}/api/chat/${encodeURIComponent(userRoll)}`, { headers: authHeaders() });
+      if (!res.ok) { totalChatsEl.textContent = '—'; weeklyChatsEl.textContent = '—'; lastChatEl.textContent = '—'; return; }
 
-    async function fetchNotices() {
-      try {
-        const res = await fetch('/api/notices', { headers: authHeaders() });
-        if (!res.ok) {
-          noticesList.textContent = 'No notices at the moment.';
-          return;
-        }
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) {
-          noticesList.textContent = 'No notices at the moment.';
-          return;
-        }
-        noticesList.innerHTML = '';
-        data.slice(0,5).forEach(n => {
-          const el = document.createElement('div');
-          el.className = 'notice';
-          el.textContent = n.title ? `${n.title} — ${n.body || ''}` : (n.body || '');
-          noticesList.appendChild(el);
-        });
-      } catch (err) {
-        noticesList.textContent = 'No notices at the moment.';
-      }
-    }
+      const history = await res.json();
+      const total = Array.isArray(history) ? history.length : 0;
+      const oneWeekAgo = Date.now() - 7*24*3600*1000;
+      const weekly = Array.isArray(history) ? history.filter(h => (new Date(h.createdAt || h.time || Date.now()).getTime() > oneWeekAgo)).length : 0;
+      const last = (Array.isArray(history) && history[0]) ? new Date(history[0].createdAt || history[0].time || Date.now()).toLocaleString() : '—';
+      totalChatsEl.textContent = total;
+      weeklyChatsEl.textContent = weekly;
+      lastChatEl.textContent = last;
+    } catch (err) { console.error('fetchChatHistory error', err); totalChatsEl.textContent = '—'; weeklyChatsEl.textContent = '—'; lastChatEl.textContent = '—'; }
+  }
 
-    async function fetchWarnings() {
-      try {
-        if (!userRoll) return;
-        const res = await fetch(`/api/admin/warnings/${encodeURIComponent(userRoll)}`, { headers: authHeaders() });
-        if (!res.ok) {
-          // fallback: already handled in profile rendering
-          return;
-        }
-        const data = await res.json();
-        renderWarningsList(data);
-      } catch (err) {
-        // ignore; use profile's warnings
-      }
-    }
-
-    function renderWarningsList(list) {
-      warningsContainer.innerHTML = '';
-      if (!Array.isArray(list) || list.length === 0) {
-        warningsContainer.innerHTML = '<div class="muted">You have no warnings.</div>';
-        return;
-      }
-      list.forEach(w => {
-        const d = document.createElement('div');
-        d.style.padding = '8px';
-        d.style.borderBottom = '1px dashed rgba(255,255,255,0.06)';
-        d.innerHTML = `<strong style="color:${w.level==='high'?'#ffb4b4':'#ffd480'}">${(w.level||'low').toUpperCase()}</strong> — ${w.reason} <div style="font-size:12px;color:rgba(255,255,255,0.75)">${new Date(w.createdAt).toLocaleString()}</div>`;
-        warningsContainer.appendChild(d);
+  async function fetchNotices() {
+    try {
+      const res = await fetch(`${API}/api/notices`, { headers: authHeaders() });
+      if (!res.ok) { noticesList.textContent = 'No notices at the moment.'; return; }
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) { noticesList.textContent = 'No notices at the moment.'; return; }
+      noticesList.innerHTML = '';
+      data.slice(0,5).forEach(n => {
+        const el = document.createElement('div'); el.className = 'notice';
+        el.textContent = n.title ? `${n.title} — ${n.body || ''}` : (n.body || '');
+        noticesList.appendChild(el);
       });
-    }
+    } catch (err) { noticesList.textContent = 'No notices at the moment.'; }
+  }
 
-    function renderWarningsFromProfile(profile) {
-      warningsContainer.innerHTML = '';
-      const c = profile?.warningsCount || 0;
-      if (c === 0) {
-        warningsContainer.innerHTML = '<div class="muted">You have no warnings.</div>';
-        return;
-      }
+  async function fetchWarnings() {
+    try {
+      if (!userRoll) return;
+      const res = await fetch(`${API}/api/admin/warnings/${encodeURIComponent(userRoll)}`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      renderWarningsList(data);
+    } catch (err) {}
+  }
+
+  function renderWarningsList(list) {
+    warningsContainer.innerHTML = '';
+    if (!Array.isArray(list) || list.length === 0) { warningsContainer.innerHTML = '<div class="muted">You have no warnings.</div>'; return; }
+    list.forEach(w => {
       const d = document.createElement('div');
       d.style.padding = '8px';
-      d.innerHTML = `<strong style="color:var(--danger)">You have ${c} warning(s)</strong><div style="font-size:12px;color:rgba(255,255,255,0.8)">Contact admin for details.</div>`;
+      d.style.borderBottom = '1px dashed rgba(255,255,255,0.06)';
+      d.innerHTML = `<strong style="color:${w.level==='high'?'#ffb4b4':'#ffd480'}">${(w.level||'low').toUpperCase()}</strong> — ${w.reason} <div style="font-size:12px;color:rgba(255,255,255,0.75)">${new Date(w.createdAt).toLocaleString()}</div>`;
       warningsContainer.appendChild(d);
-    }
-
-    function calculateProfilePct(data) {
-      const fields = ['name','email','roll','dept','cls','avatarUrl'];
-      let filled = 0;
-      fields.forEach(f=> { if (data && data[f]) filled++; });
-      return Math.round((filled / fields.length) * 100);
-    }
-
-    // ---------- Avatar upload ----------
-    avatarFile.addEventListener('change', async (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = reader.result;
-        avatarImg.src = dataUrl;
-        try { localStorage.setItem('avatarData', dataUrl); } catch(e){}
-
-        // Try to save to backend (best-effort). Server may not accept this field; if not, ignore error.
-        try {
-          await fetch(`/api/student`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ roll: userRoll, name: displayName.textContent, dept: (displayDept.textContent || '').replace('Dept: ','') || '', cls: '' , avatarUrl: dataUrl })
-          });
-        } catch (err) {
-          // ignore server errors for avatar save
-        }
-      };
-      reader.readAsDataURL(f);
     });
+  }
 
-    // ---------- Buttons ----------
-    openChatBtn.addEventListener('click', ()=> location.href = 'chatbot.html');
-    openChatBtn2.addEventListener('click', ()=> location.href = 'chatbot.html');
-    settingsBtn.addEventListener('click', ()=> location.href = 'settings.html');
+  function renderWarningsFromProfile(profile) {
+    warningsContainer.innerHTML = '';
+    const c = profile?.warningsCount || 0;
+    if (c === 0) { warningsContainer.innerHTML = '<div class="muted">You have no warnings.</div>'; return; }
+    const d = document.createElement('div');
+    d.style.padding = '8px';
+    d.innerHTML = `<strong style="color:var(--danger)">You have ${c} warning(s)</strong><div style="font-size:12px;color:rgba(255,255,255,0.8)">Contact admin for details.</div>`;
+    warningsContainer.appendChild(d);
+  }
 
-    // Logout helper that attempts server logout then redirects
-    async function handleLogoutRedirect() {
+  function calculateProfilePct(data) {
+    const fields = ['name','email','roll','dept','cls','avatarUrl'];
+    let filled = 0;
+    fields.forEach(f=> { if (data && data[f]) filled++; });
+    return Math.round((filled / fields.length) * 100);
+  }
+
+  // ---------- Avatar upload ----------
+  avatarFile.addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result;
+      avatarImg.src = dataUrl;
+      try { localStorage.setItem('avatarData', dataUrl); } catch(e){}
       try {
-        // attempt to call logout endpoint if available; best-effort
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ refreshToken: null })
-        });
-      } catch (err) {
-        // ignore network errors
-      }
-      // clear stored tokens
-      try {
-        localStorage.removeItem('token');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('authToken');
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('accessToken');
-        sessionStorage.removeItem('authToken');
-        localStorage.removeItem('avatarData');
-      } catch (e) {}
-      location.href = 'login.html';
-    }
+        await fetch(`${API}/api/student`, { method:'POST', headers: authHeaders(), body: JSON.stringify({ roll:userRoll, name: displayName.textContent, dept:(displayDept.textContent || '').replace('Dept: ','') || '', cls:'', avatarUrl:dataUrl }) });
+      } catch(err){}
+    };
+    reader.readAsDataURL(f);
+  });
 
-    logoutBtn.addEventListener('click', () => {
-      if (!confirm('Logout now?')) return;
-      handleLogoutRedirect();
-    });
+  // ---------- Buttons ----------
+  openChatBtn.addEventListener('click', ()=> location.href = 'chatbot.html');
+  openChatBtn2.addEventListener('click', ()=> location.href = 'chatbot.html');
+  settingsBtn.addEventListener('click', ()=> location.href = 'settings.html');
 
-    editProfileBtn.addEventListener('click', ()=> {
-      // redirect to profile edit page if exists
-      location.href = 'profile.html';
-    });
-
-    // ---------- Real-time: socket.io (guarded) ----------
-    let socket = null;
+  async function handleLogoutRedirect() {
     try {
-      if (typeof io !== 'undefined') {
-        socket = io({ auth: { token } });
-        socket.on('connect', ()=> console.log('socket connected'));
-        socket.on('warning:updated', (d)=> {
-          if (d.roll === userRoll) {
-            fetchProfile(); fetchWarnings();
-          }
-        });
-        socket.on('student:locked', (d)=> {
-          if (d.roll === userRoll) fetchProfile();
-        });
-        socket.on('student:unlocked', (d)=> {
-          if (d.roll === userRoll) fetchProfile();
-        });
-        socket.on('coursePlan:updated', ()=> fetchNotices());
-        socket.on('chat:new', (chat)=> {
-          if (chat.roll === userRoll) fetchChatHistoryAndUsage();
-        });
-      }
-    } catch (err) {
-      console.warn('socket.io not available', err);
+      await fetch(`${API}/api/auth/logout`, { method:'POST', headers: authHeaders(), body: JSON.stringify({ refreshToken: null }) });
+    } catch(err){}
+    try {
+      ['token','accessToken','authToken'].forEach(k=>{ localStorage.removeItem(k); sessionStorage.removeItem(k); });
+      localStorage.removeItem('avatarData');
+    } catch(e){}
+    location.href = 'login.html';
+  }
+
+  logoutBtn.addEventListener('click', ()=> { if(confirm('Logout now?')) handleLogoutRedirect(); });
+  editProfileBtn.addEventListener('click', ()=> location.href = 'profile.html');
+
+  // ---------- Real-time socket.io ----------
+  let socket = null;
+  try {
+    if (typeof io !== 'undefined') {
+      socket = io({ auth: { token } });
+      socket.on('connect', ()=> console.log('socket connected'));
+      socket.on('warning:updated', (d)=> { if(d.roll===userRoll){ fetchProfile(); fetchWarnings(); } });
+      socket.on('student:locked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
+      socket.on('student:unlocked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
+      socket.on('coursePlan:updated', ()=> fetchNotices());
+      socket.on('chat:new', (chat)=> { if(chat.roll===userRoll) fetchChatHistoryAndUsage(); });
     }
+  } catch(err){ console.warn('socket.io not available', err); }
 
-    // ---------- Initial load & polling ----------
-    async function loadAll() {
-      const profile = await fetchProfile();
-      await fetchChatHistoryAndUsage();
-      await fetchNotices();
-      await fetchWarnings();
-      // optional: more advanced checks (omitted)
-    }
-    loadAll();
-    // poll every 12 seconds to refresh status
-    const poll = setInterval(loadAll, 12000);
+  // ---------- Initial load & polling ----------
+  async function loadAll() { await fetchProfile(); await fetchChatHistoryAndUsage(); await fetchNotices(); await fetchWarnings(); }
+  loadAll();
+  const poll = setInterval(loadAll, 12000);
 
-    // Clean up before unload
-    window.addEventListener('beforeunload', ()=> {
-      clearInterval(poll);
-      if (socket) socket.disconnect();
-    });
+  window.addEventListener('beforeunload', ()=> { clearInterval(poll); if(socket) socket.disconnect(); });
+  showLocalAvatar();
+                             </script>
 
-    // On initial page show local avatar if backend avatar missing
-    showLocalAvatar();
-  </script>
+              
 </body>
 </html>
