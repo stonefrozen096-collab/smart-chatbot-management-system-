@@ -150,76 +150,78 @@
   </div>
 
   <script>
-    const token = localStorage.getItem("authToken");
-    if (!token) window.location.href = "index.html";
+  const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
 
-    async function loadSettings() {
-      try {
-        const res = await fetch("/api/user/settings", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+  // Correct token key
+  const token = localStorage.getItem("token");
+  if (!token) window.location.href = "index.html";
 
-        const data = await res.json();
-        if (!data.settings) return;
-
-        document.getElementById("theme").value = data.settings.theme;
-        document.getElementById("fontSize").value = data.settings.fontSize;
-        document.getElementById("notifications").checked = data.settings.notifications;
-        document.getElementById("safeMode").checked = data.settings.safeMode;
-
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    loadSettings();
-
-    // Save settings
-    document.getElementById("saveBtn").addEventListener("click", async () => {
-      const body = {
-        theme: document.getElementById("theme").value,
-        fontSize: document.getElementById("fontSize").value,
-        notifications: document.getElementById("notifications").checked,
-        safeMode: document.getElementById("safeMode").checked
-      };
-
-      const res = await fetch("/api/user/settings", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-      });
-
-      const out = await res.json();
-
-      const msg = document.getElementById("saveMsg");
-      msg.style.color = res.ok ? "lightgreen" : "salmon";
-      msg.textContent = res.ok ? "✔ Settings saved!" : out.error;
-    });
-
-    // Delete account
-    document.getElementById("deleteAccountBtn").addEventListener("click", async () => {
-      if (!confirm("Are you sure? This will permanently delete your account.")) return;
-
-      const res = await fetch("/api/user/delete", {
-        method: "DELETE",
+  async function loadSettings() {
+    try {
+      const res = await fetch(`${API_URL}/api/user/settings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (res.ok) {
-        localStorage.clear();
-        alert("Account deleted.");
-        window.location.href = "signup.html";
-      }
+      const data = await res.json();
+      if (!data.settings) return;
+
+      theme.value = data.settings.theme;
+      fontSize.value = data.settings.fontSize;
+      notifications.checked = data.settings.notifications;
+      safeMode.checked = data.settings.safeMode;
+
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  loadSettings();
+
+  // Save settings
+  saveBtn.addEventListener("click", async () => {
+    const body = {
+      theme: theme.value,
+      fontSize: fontSize.value,
+      notifications: notifications.checked,
+      safeMode: safeMode.checked
+    };
+
+    const res = await fetch(`${API_URL}/api/user/settings`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
     });
 
-    // Logout
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.clear();
-      window.location.href = "index.html";
+    const out = await res.json();
+
+    saveMsg.style.color = res.ok ? "lightgreen" : "salmon";
+    saveMsg.textContent = res.ok ? "✔ Settings saved!" : out.error;
+  });
+
+  // Delete account
+  deleteAccountBtn.addEventListener("click", async () => {
+    if (!confirm("Are you sure? This will permanently delete your account.")) return;
+
+    const res = await fetch(`${API_URL}/api/user/delete`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
     });
+
+    if (res.ok) {
+      localStorage.clear();
+      alert("Account deleted.");
+      window.location.href = "index.html";
+    }
+  });
+
+  // Logout
+  logoutBtn.addEventListener("click", () => {
+    localStorage.clear();
+    window.location.href = "index.html";
+  });
   </script>
 
 </body>
