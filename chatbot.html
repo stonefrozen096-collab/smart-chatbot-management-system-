@@ -130,12 +130,12 @@ if(!TOKEN || !studentProfile){
 }
 
 // ESCAPE TEXT
-function safe(text){ return text.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function safe(text){ return text.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
 
 // DISPLAY STUDENT INFO
 function displayStudentInfo(){
   document.getElementById("studentInfo").innerHTML=
-  `👤 ${safe(studentProfile.name)} | 🎓 ${safe(studentProfile.roll)} | ${safe(studentProfile.dept)} - ${safe(studentProfile.cls)}`;
+    `👤 ${safe(studentProfile.name)} | 🎓 ${safe(studentProfile.roll)} | ${safe(studentProfile.dept)} - ${safe(studentProfile.cls)}`;
 }
 
 // GENERATE INITIALS AVATAR
@@ -148,6 +148,10 @@ function initialsAvatar(name){
   return 'data:image/svg+xml;base64,'+btoa(svg);
 }
 
+// AVATARS
+let studentAvatar = localStorage.getItem('avatarData') || initialsAvatar(studentProfile.name);
+const botAvatar = '/bot-avatar.png';
+
 // ADD MESSAGE
 function addMessage(sender,text,avatarUrl=null){
   const chatBox=document.getElementById("chatBox");
@@ -156,8 +160,7 @@ function addMessage(sender,text,avatarUrl=null){
 
   const avatar=document.createElement("img");
   avatar.className="avatar";
-  if(sender==="user") avatar.src=avatarUrl||studentProfile.avatar||initialsAvatar(studentProfile.name);
-  else avatar.src=avatarUrl||'/bot-avatar.png';
+  avatar.src = sender==="user" ? avatarUrl||studentAvatar : avatarUrl||botAvatar;
 
   const textDiv=document.createElement("div");
   textDiv.className="text";
@@ -183,7 +186,12 @@ function renderHistory(){
     const div=document.createElement("div");
     div.className="historyItem";
     div.textContent=`[${m.sender==="user"?"You":"Bot"}] ${m.text.slice(0,30)}...`;
-    div.onclick=()=>{ addMessage(m.sender,m.text); };
+    // Prefill input on click instead of sending
+    div.onclick=()=>{
+      const input = document.getElementById("chatInput");
+      input.value = m.text;
+      input.focus();
+    };
     list.appendChild(div);
   });
 }
@@ -194,9 +202,12 @@ function showTyping(show){ document.getElementById("loading").style.display=show
 // SOCKET.IO REAL-TIME
 const socket = io(API_URL, { auth:{ token:TOKEN } });
 socket.on('connect',()=>console.log('Socket connected'));
-
 socket.on('chat:new',msg=>{
-  if(msg.roll===studentProfile.roll) addMessage('bot',msg.message,'/bot-avatar.png');
+  // Always display bot messages for this student
+  if(msg.roll===studentProfile.roll || msg.sender==='bot') {
+    addMessage('bot',msg.message,botAvatar);
+    showTyping(false);
+  }
 });
 socket.on('warning:updated',()=> checkLockStatus());
 socket.on('student:locked',()=> checkLockStatus());
@@ -218,9 +229,9 @@ async function sendMessage(){
       body:JSON.stringify({ roll:studentProfile.roll, sender:"user", message, useGemini:true })
     });
   }catch(err){
-    addMessage("bot","⚠️ Error sending message","/bot-avatar.png");
+    addMessage("bot","⚠️ Error sending message",botAvatar);
+    showTyping(false);
   }
-  showTyping(false);
 }
 
 // CHECK LOCK & WARNINGS
