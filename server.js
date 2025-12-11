@@ -424,6 +424,7 @@ const registerSchema = Joi.object({
   dept: Joi.string().required(),
   cls: Joi.string().required(),
   email: Joi.string().email().optional().allow(""),
+  role: Joi.string().valid("student", "admin").default("student"),
   password: Joi.string().min(8).max(128).required(),
 }).unknown(false);
 const loginSchema = Joi.object({ roll: Joi.string().required(), password: Joi.string().required() });
@@ -461,12 +462,12 @@ app.post("/api/auth/register", csrfProtect, async (req, res) => {
     const { error, value } = registerSchema.validate(req.body);
     if (error) return res.status(400).json({ error: error.message });
 
-    const { roll, name, dept, cls, email, password } = value;
+    const { roll, name, dept, cls, email, password, role = "student" } = value;
     const existing = await Student.findOne({ roll });
     if (existing) return res.status(409).json({ error: "Roll already registered" });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const student = new Student({ roll, name, dept, cls, email: email || "", passwordHash });
+    const student = new Student({ roll, name, dept, cls, role, email: email || "", passwordHash });
     await student.save();
 
     // Use an atomic update to add refresh token (avoid VersionError)
