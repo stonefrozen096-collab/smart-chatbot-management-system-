@@ -5,17 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nandha Chatbot Management System</title>
 <style>
-  body {margin:0;font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#0077ff,#00d4ff);display:flex;justify-content:center;align-items:center;height:100vh;color:#fff;}
-  .container{background:rgba(255,255,255,0.15);border-radius:20px;backdrop-filter:blur(12px);padding:40px 50px;width:340px;text-align:center;}
-  h1{font-size:27px;font-weight:700;}
-  input,button{width:100%;padding:12px;margin:10px 0;border-radius:8px;border:none;font-size:15px;}
-  input{background:rgba(255,255,255,0.9);}
-  button{background:#0077ff;color:white;font-weight:600;cursor:pointer;transition:0.3s;}
-  button:hover{background:#00bfff;transform:translateY(-2px);}
-  .toggle-link{cursor:pointer;text-decoration:underline;}
-  .error-msg{color:#ffcccb;font-size:13px;}
-  section{display:none;}
+  body {margin:0;font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#0077ff,#00d4ff);background-size:200% 200%;animation:gradientShift 12s ease-in-out infinite;display:flex;justify-content:center;align-items:center;height:100vh;color:#fff;overflow:hidden;}
+  body::before,body::after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,0.12);filter:blur(30px);animation:floaty 9s ease-in-out infinite;}
+  body::before{top:-60px;left:-40px;}
+  body::after{bottom:-70px;right:-30px;animation-delay:2s;}
+  .container{position:relative;z-index:1;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.18);box-shadow:0 18px 45px rgba(0,0,0,0.18);border-radius:20px;backdrop-filter:blur(14px);padding:42px 52px;width:340px;text-align:center;animation:popIn 0.8s ease forwards;}
+  h1{font-size:27px;font-weight:700;margin-bottom:6px;letter-spacing:0.3px;}
+  .tagline{margin-top:0;margin-bottom:18px;opacity:0.9;}
+  input,button{width:100%;padding:12px;margin:10px 0;border-radius:10px;border:none;font-size:15px;}
+  input{background:rgba(255,255,255,0.94);color:#0d1b2a;}
+  button{background:linear-gradient(135deg,#0077ff,#00b3ff);color:white;font-weight:700;cursor:pointer;transition:transform 0.25s ease,box-shadow 0.25s ease;box-shadow:0 10px 25px rgba(0,123,255,0.35);}
+  button:hover{transform:translateY(-2px) scale(1.01);box-shadow:0 14px 32px rgba(0,123,255,0.45);}
+  .toggle-link{cursor:pointer;text-decoration:underline;opacity:0.9;}
+  .error-msg{color:#ffcccb;font-size:13px;min-height:18px;}
+  section{display:none;animation:fadeIn 0.4s ease;}
   #loginSection{display:block;}
+  @keyframes gradientShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+  @keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(20px);} }
+  @keyframes popIn{0%{opacity:0;transform:translateY(18px) scale(0.98);}100%{opacity:1;transform:translateY(0) scale(1);} }
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);} }
 </style>
 </head>
 <body>

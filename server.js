@@ -1,3 +1,4 @@
+
 // server.js — Full Student Chatbot Backend (final merged + enhancements)
 // ES module style
 import express from "express";
@@ -99,6 +100,14 @@ function generateTokenId() {
 function generateCsrfToken() {
   return crypto.randomBytes(32).toString("hex");
 }
+
+const isProd = NODE_ENV === "production";
+const csrfCookieOptions = {
+  httpOnly: false,
+  sameSite: isProd ? "none" : "lax",
+  secure: isProd,
+  maxAge: 24 * 3600 * 1000,
+};
 
 // ---------------------- MongoDB ----------------------
 await mongoose
@@ -403,12 +412,7 @@ function csrfProtect(req, res, next) {
 app.get("/api/csrf-token", (req, res) => {
   const token = generateCsrfToken();
   // double-submit pattern: cookie readable by JS (not httpOnly), you may choose secure/httpOnly flags in prod
-  res.cookie("csrf_token", token, {
-    httpOnly: false, // must be readable by JS for double-submit
-    sameSite: "lax",
-    secure: NODE_ENV === "production",
-    maxAge: 24 * 3600 * 1000,
-  });
+  res.cookie("csrf_token", token, csrfCookieOptions);
   res.json({ csrfToken: token });
 });
 
@@ -453,12 +457,7 @@ app.post("/api/auth/register", csrfProtect, async (req, res) => {
 
     // create and set csrf token cookie (double-submit)
     const csrfToken = generateCsrfToken();
-    res.cookie("csrf_token", csrfToken, {
-      httpOnly: false,
-      sameSite: "lax",
-      secure: NODE_ENV === "production",
-      maxAge: 24 * 3600 * 1000,
-    });
+    res.cookie("csrf_token", csrfToken, csrfCookieOptions);
 
     res.status(201).json({
       accessToken,
@@ -517,11 +516,7 @@ app.post("/api/auth/login", async (req, res) => {
     const csrfToken = generateCsrfToken();
 
     // Set CSRF cookie
-    res.cookie("csrf_token", csrfToken, {
-      httpOnly: false,
-      sameSite: "lax",
-      secure: NODE_ENV === "production"
-    });
+    res.cookie("csrf_token", csrfToken, csrfCookieOptions);
 
     // Final response
     res.json({
@@ -576,11 +571,7 @@ app.post("/api/auth/refresh", csrfProtect, async (req, res) => {
 
     // refresh CSRF cookie
     const csrfToken = generateCsrfToken();
-    res.cookie("csrf_token", csrfToken, {
-      httpOnly: false,
-      sameSite: "lax",
-      secure: NODE_ENV === "production",
-    });
+    res.cookie("csrf_token", csrfToken, csrfCookieOptions);
 
     res.json({ accessToken: newAccess, refreshToken: newRefresh, csrfToken });
   } catch (err) {
