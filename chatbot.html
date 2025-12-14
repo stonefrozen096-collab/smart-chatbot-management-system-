@@ -88,6 +88,19 @@ body {
 
 #loading { display:none;text-align:center;margin:4px 0;font-size:13px;color:#ffe; }
 
+.quick-prompts { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.chip { background: rgba(255,255,255,0.15); border:none; padding:6px 10px; border-radius:16px; color:#fff; cursor:pointer; font-size:12px; }
+.chip:hover { background: rgba(255,255,255,0.25); }
+
+.toolbar { display:flex; gap:6px; margin-top:6px; }
+.btn-secondary { padding:8px 10px;border:none;border-radius:10px;background:#0ea5e9;cursor:pointer;font-weight:600;transition:0.2s; }
+.btn-secondary:hover { background:#0284c7; }
+
+#trendPanel { background: rgba(0,0,0,0.15); border-radius:12px; margin:10px; padding:10px; }
+#trendStats { display:flex; flex-wrap:wrap; gap:10px; font-size:13px; }
+.stat { background: rgba(255,255,255,0.1); padding:6px 8px; border-radius:8px; }
+.code { background:#111; color:#0f0; padding:8px; border-radius:8px; overflow:auto; }
+
 @media(max-width:800px){
   body { flex-direction:column; }
   .sidebar { width:100%; display:flex; overflow-x:auto; overflow-y:hidden; }
@@ -110,10 +123,29 @@ body {
   <div id="loading">⏳ Bot is typing...</div>
   <div id="chatBox"></div>
 
+  <div id="quickPrompts" class="quick-prompts">
+    <button class="chip" data-prompt="Show my upcoming deadlines">Deadlines</button>
+    <button class="chip" data-prompt="Summarize my recent notices">Summarize notices</button>
+    <button class="chip" data-prompt="Any warnings on my account?">Warnings?</button>
+    <button class="chip" data-prompt="Suggest a study plan for math">Study plan</button>
+  </div>
+
   <div id="inputSection">
     <input type="text" id="chatInput" placeholder="Type your question..." autocomplete="off" />
     <button id="sendBtn">Send</button>
   </div>
+
+  <div class="toolbar">
+    <button id="exportBtn" class="btn-secondary">⬇️ Export</button>
+    <button id="clearBtn" class="btn-secondary">🧹 Clear</button>
+    <button id="refreshBtn" class="btn-secondary">🔄 Refresh</button>
+  </div>
+</div>
+
+<div id="trendPanel" class="container">
+  <h3>Conversation Trends</h3>
+  <div id="trendStats"></div>
+  <canvas id="trendChart" height="120"></canvas>
 </div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -122,6 +154,7 @@ const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
 let TOKEN = sessionStorage.getItem("token");
 let studentProfile = JSON.parse(sessionStorage.getItem("userProfile")) || null;
 let chatHistory = JSON.parse(localStorage.getItem("chatHistory")) || [];
+let csrfToken = "";
 
 // SESSION CHECK
 if(!TOKEN || !studentProfile){
@@ -165,7 +198,8 @@ function addMessage(sender,text,avatarUrl=null){
   const textDiv=document.createElement("div");
   textDiv.className="text";
   const time=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  textDiv.innerHTML=`<strong>[${sender==="user"?"You":"Bot"} - ${time}]</strong><br>${safe(text)}`;
+  const rendered = sender==="bot" ? renderMarkdown(text) : safe(text);
+  textDiv.innerHTML=`<strong>[${sender==="user"?"You":"Bot"} - ${time}]</strong><br>${rendered}`;
 
   div.appendChild(avatar);
   div.appendChild(textDiv);
@@ -176,6 +210,7 @@ function addMessage(sender,text,avatarUrl=null){
   chatHistory.push({sender,text});
   localStorage.setItem("chatHistory",JSON.stringify(chatHistory));
   renderHistory();
+  updateTrends();
 }
 
 // RENDER HISTORY
@@ -203,10 +238,12 @@ function showTyping(show){ document.getElementById("loading").style.display=show
 const socket = io(API_URL, { auth:{ token:TOKEN } });
 socket.on('connect',()=>console.log('Socket connected'));
 socket.on('chat:new',msg=>{
-  // Always display bot messages for this student
-  if(msg.roll===studentProfile.roll || msg.sender==='bot') {
+  if(!msg) return;
+  if(msg.roll===studentProfile.roll && msg.sender==='assistant') {
     addMessage('bot',msg.message,botAvatar);
     showTyping(false);
+  } else if (msg.roll===studentProfile.roll && msg.sender==='user') {
+    addMessage('user',msg.message);
   }
 });
 socket.on('warning:updated',()=> checkLockStatus());
@@ -223,11 +260,20 @@ async function sendMessage(){
   showTyping(true);
 
   try{
-    await fetch(`${API_URL}/api/chat`,{
+    const res = await fetch(`${API_URL}/api/chat`,{
       method:"POST",
-      headers:{ "Content-Type":"application/json","Authorization":"Bearer "+TOKEN },
+      headers:{ "Content-Type":"application/json","Authorization":"Bearer "+TOKEN, "x-csrf-token": csrfToken },
       body:JSON.stringify({ roll:studentProfile.roll, sender:"user", message, useGemini:true })
     });
+    const data = await res.json();
+    // If HTTP returned assistant reply, render immediately (fallback if sockets delayed)
+    if (data && data.assistantReply) {
+      addMessage("bot", data.assistantReply, botAvatar);
+      showTyping(false);
+    } else if (!res.ok) {
+      addMessage("bot","⚠️ Message failed. Please retry.",botAvatar);
+      showTyping(false);
+    }
   }catch(err){
     addMessage("bot","⚠️ Error sending message",botAvatar);
     showTyping(false);
@@ -257,11 +303,130 @@ window.onload=()=>{
   displayStudentInfo();
   renderHistory();
   checkLockStatus();
+  // Load CSRF for protected POSTs
+  loadCSRF();
+  bindQuickPrompts();
+  updateTrends();
 };
 
 // EVENT LISTENERS
 document.getElementById("sendBtn").addEventListener("click",sendMessage);
 document.getElementById("chatInput").addEventListener("keypress",e=>{ if(e.key==="Enter") sendMessage(); });
+document.getElementById("exportBtn").addEventListener("click",exportHistory);
+document.getElementById("clearBtn").addEventListener("click",clearHistory);
+document.getElementById("refreshBtn").addEventListener("click",()=>{ renderHistory(); updateTrends(); });
+
+// CSRF helper
+async function loadCSRF(){
+  try{
+    const r = await fetch(`${API_URL}/api/csrf-token`, { method:"GET", credentials:"include" });
+    const d = await r.json();
+    csrfToken = d.csrfToken || "";
+  }catch(e){ console.warn("CSRF load failed", e); }
+}
+
+function bindQuickPrompts(){
+  document.querySelectorAll('#quickPrompts .chip').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p=btn.dataset.prompt;
+      const input=document.getElementById('chatInput');
+      input.value=p;
+      sendMessage();
+    });
+  });
+}
+
+function exportHistory(){
+  const rows = chatHistory.map(m=>`${m.sender},"${(m.text||'').replace(/"/g,'"')}"`).join('\n');
+  const blob = new Blob([`sender,text\n${rows}`],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='chat-history.csv';
+  a.click();
+}
+
+function clearHistory(){
+  chatHistory=[];
+  localStorage.removeItem('chatHistory');
+  document.getElementById('chatBox').innerHTML='';
+  renderHistory();
+  updateTrends();
+}
+
+function renderMarkdown(text){
+  let t = text || '';
+  t = t.replace(/```([\s\S]*?)```/g,(m,code)=>`<pre class="code"><code>${safe(code)}</code></pre>`);
+  t = t.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  t = t.replace(/\*([^*]+)\*/g,'<i>$1</i>');
+  t = t.replace(/\[(.+?)\]\((https?:[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t = t.replace(/^\- (.+)$/gm,'<li>$1</li>');
+  t = t.replace(/(<li>[^<]+<\/li>\n?)+/g,(m)=>`<ul>${m}</ul>`);
+  return t;
+}
+
+function updateTrends(){
+  const total = chatHistory.length;
+  const userMsgs = chatHistory.filter(m=>m.sender==='user');
+  const botMsgs = chatHistory.filter(m=>m.sender!=='user');
+  const categories = categorizeIntents(userMsgs);
+  const lastBot = botMsgs.slice(-1)[0];
+  const sentiment = lastBot ? estimateSentiment(lastBot.text||'') : 'neutral';
+  const panel = document.getElementById('trendStats');
+  if(!panel) return;
+  panel.innerHTML = `
+    <div class="stat">Total: <b>${total}</b></div>
+    <div class="stat">You: <b>${userMsgs.length}</b></div>
+    <div class="stat">Assistant: <b>${botMsgs.length}</b></div>
+    <div class="stat">Last sentiment: <b>${sentiment}</b></div>
+    <div class="stat">Top intents: <b>${Object.entries(categories).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k} (${v})`).join(', ')||'—'}</b></div>
+  `;
+  renderTrendChart(categories);
+}
+
+function estimateSentiment(text){
+  const t=text.toLowerCase();
+  const pos=["thanks","great","good","awesome","helpful","nice","cool","resolved","fixed"];
+  const neg=["bad","angry","sad","upset","problem","issue","error","delay","late"];
+  const p=pos.some(w=>t.includes(w));
+  const n=neg.some(w=>t.includes(w));
+  return p&&!n?"positive":(!p&&n?"negative":"neutral");
+}
+
+function categorizeIntents(userMsgs){
+  const buckets={ deadlines:0, notices:0, warnings:0, study:0, schedule:0, other:0 };
+  for(const m of userMsgs){
+    const t=(m.text||'').toLowerCase();
+    if(t.includes('deadline')) buckets.deadlines++;
+    else if(t.includes('notice')) buckets.notices++;
+    else if(t.includes('warning')||t.includes('appeal')) buckets.warnings++;
+    else if(t.includes('study')||t.includes('plan')) buckets.study++;
+    else if(t.includes('schedule')||t.includes('time')) buckets.schedule++;
+    else buckets.other++;
+  }
+  return buckets;
+}
+
+function renderTrendChart(categories){
+  const canvas=document.getElementById('trendChart');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const labels=Object.keys(categories);
+  const values=Object.values(categories);
+  const w=canvas.width||300, h=canvas.height||120;
+  ctx.clearRect(0,0,w,h);
+  const max=Math.max(...values,1);
+  const barW=(w-20)/labels.length;
+  labels.forEach((lab,i)=>{
+    const v=values[i];
+    const bh=(h-20)*(v/max);
+    const x=10+i*barW, y=h-10-bh;
+    ctx.fillStyle='#4f46e5';
+    ctx.fillRect(x,y,barW-8,bh);
+    ctx.fillStyle='#ddd';
+    ctx.font='12px sans-serif';
+    ctx.fillText(lab, x, h-2);
+  });
+}
 </script>
 
 </body>

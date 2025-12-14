@@ -132,6 +132,13 @@
     color:#000;padding:10px;border-radius:10px;font-weight:600;margin-bottom:8px;
   }
 
+  /* Mailbox */
+  .mailbox { background: var(--glass-2); padding: 14px; border-radius: 12px; }
+  .mail-item { background: rgba(0,0,0,0.15); padding: 10px; border-radius: 10px; margin-bottom: 8px; }
+  .mail-meta { font-size: 12px; opacity: 0.85; }
+  .badge { display:inline-block; padding:4px 8px; border-radius: 999px; font-size: 12px; margin-left:6px; background: rgba(255,255,255,0.18); }
+  .mail-actions { display:flex; gap:8px; margin-top:8px; }
+
   /* Chat summary and Open Chat button */
   .summary{
     display:flex;
@@ -228,6 +235,12 @@
           <div id="noticesList" class="muted">Loading notices…</div>
         </div>
 
+        <div class="status-card mailbox" id="mailboxCard">
+          <h3>Mailbox</h3>
+          <div class="mutedSmall">System messages, rewards and important updates from admin.</div>
+          <div id="mailList" style="margin-top:8px">Loading messages…</div>
+        </div>
+
         <div class="status-card">
           <h3>Chat Usage Summary</h3>
           <div class="summary">
@@ -311,6 +324,7 @@
   const lockReason = document.getElementById('lockReason');
   const lockMeta = document.getElementById('lockMeta');
   const noticesList = document.getElementById('noticesList');
+  const mailList = document.getElementById('mailList');
 
   const totalChatsEl = document.getElementById('totalChats');
   const weeklyChatsEl = document.getElementById('weeklyChats');
@@ -426,6 +440,37 @@
         noticesList.appendChild(el);
       });
     } catch (err) { noticesList.textContent = 'No notices at the moment.'; }
+  }
+
+  // ---------- Mailbox ----------
+  async function fetchMailbox(){
+    try{
+      const res = await fetch(`${API}/api/student/messages`, { headers: authHeaders() });
+      if(!res.ok){ mailList.textContent = 'No messages.'; return; }
+      const data = await res.json();
+      renderMailbox(Array.isArray(data)?data:[]);
+    }catch(e){ mailList.textContent = 'No messages.'; }
+  }
+
+  function renderMailbox(items){
+    mailList.innerHTML = '';
+    if(items.length===0){ mailList.textContent = 'No messages.'; return; }
+    items.slice(0,10).forEach(m=>{
+      const wrap = document.createElement('div');
+      wrap.className = 'mail-item';
+      const title = m.title || (m.type === 'reward' ? 'Reward' : 'Message');
+      const body = m.body || m.message || '';
+      const created = new Date(m.createdAt || Date.now()).toLocaleString();
+      const unread = m.read ? '' : '<span class="badge">unread</span>';
+      const typeBadge = `<span class="badge">${(m.type||'system')}</span>`;
+      wrap.innerHTML = `<strong>${title}</strong> ${typeBadge} ${unread}<div style="margin-top:6px">${body}</div><div class="mail-meta">${created}</div>`;
+      const actions = document.createElement('div'); actions.className = 'mail-actions';
+      const markBtn = document.createElement('button'); markBtn.className = 'btn small'; markBtn.textContent = 'Mark as read';
+      markBtn.onclick = async ()=>{ try{ await fetch(`${API}/api/student/messages/${encodeURIComponent(m._id)}/read`, { method:'POST', headers: authHeaders() }); fetchMailbox(); }catch(e){} };
+      actions.appendChild(markBtn);
+      wrap.appendChild(actions);
+      mailList.appendChild(wrap);
+    });
   }
 
   async function fetchWarnings() {
@@ -560,7 +605,7 @@
 
   // ---------- Initial load & polling ----------
   initDarkMode();
-  async function loadAll() { await fetchProfile(); await fetchChatHistoryAndUsage(); await fetchNotices(); await fetchWarnings(); }
+  async function loadAll() { await fetchProfile(); await fetchChatHistoryAndUsage(); await fetchNotices(); await fetchWarnings(); await fetchMailbox(); }
   loadAll();
   const poll = setInterval(loadAll, 12000);
 
