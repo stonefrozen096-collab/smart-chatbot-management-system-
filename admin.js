@@ -10,10 +10,13 @@ console.log("%c SECURE ADMIN PANEL JS LOADED ", "background:#0f0;color:#000;padd
 // ========================
 
 async function secureFetch(url, options = {}) {
-
-    options.credentials = "include";                   // Send HTTP-only cookie
+    options.credentials = "include";                   // Send cookies (CSRF)
     options.headers = options.headers || {};
-    options.headers["X-CSRF-Token"] = getCSRF();       // Protect from CSRF attacks
+    // CSRF header name expected by server
+    options.headers["x-csrf-token"] = getCSRF();
+    // Attach JWT if present
+    const token = sessionStorage.getItem("token");
+    if (token) options.headers["Authorization"] = "Bearer " + token;
 
     let res = await fetch(url, options);
 
@@ -69,15 +72,14 @@ async function uploadPlan() {
     const file = fileInput.files[0];
     if (file.type !== "application/pdf") return alert("Only PDF allowed.");
 
-    const formData = new FormData();
-    formData.append("file", file);
-
+    // Backend expects JSON with name; no file upload handler present
     try {
-        const res = await secureFetch("/api/course-plans", {
+        const res = await secureFetch("/api/course-plan", {
             method: "POST",
-            body: formData
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: file.name })
         });
-
+        if (!res.ok) throw new Error("Upload failed");
         alert("Uploaded successfully!");
         await displayPlans();
     } catch (err) {
@@ -87,28 +89,20 @@ async function uploadPlan() {
 }
 
 async function displayPlans() {
-    const res = await secureFetch("/api/course-plans");
+    const res = await secureFetch("/api/course-plan");
     const plans = await res.json();
 
     const table = document.querySelector("#coursePlansTable");
-    table.innerHTML = `<tr><th>File</th><th>Date</th><th>Action</th></tr>`;
+    table.innerHTML = `<tr><th>File</th><th>Uploaded</th></tr>`;
 
     plans.forEach(p => {
         table.innerHTML += `
             <tr>
-                <td>${escapeHTML(p.name)}</td>
-                <td>${new Date(p.date).toLocaleString()}</td>
-                <td><button onclick="deletePlan('${p.id}')">Delete</button></td>
+                <td>${escapeHTML(p.name || "")}</td>
+                <td>${new Date(p.uploadedAt).toLocaleString()}</td>
             </tr>
         `;
     });
-}
-
-async function deletePlan(id) {
-    await secureFetch(`/api/course-plans/${id}`, {
-        method: "DELETE"
-    });
-    await displayPlans();
 }
 
 
@@ -116,23 +110,11 @@ async function deletePlan(id) {
 // GLOBAL CHAT LOCK
 // =====================================================
 async function globalLock() {
-    await secureFetch("/api/chat/lock/global", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: "locked" })
-    });
-
-    alert("Global chat locked.");
+    alert("Global lock requires server API key. Disabled here.");
 }
 
 async function globalUnlock() {
-    await secureFetch("/api/chat/lock/global", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: "unlocked" })
-    });
-
-    alert("Global chat unlocked.");
+    alert("Global unlock requires server API key. Disabled here.");
 }
 
 
@@ -143,13 +125,15 @@ async function applySpecificLock() {
     const dept = document.getElementById("deptLock").value;
     const cls = document.getElementById("classLock").value;
     const student = document.getElementById("studentLock").value || null;
-
-    await secureFetch("/api/chat/lock/specific", {
+    if (!student) return alert("Provide a student roll to lock.");
+    const seconds = 24 * 3600; // 1 day default
+    const reason = `manual-lock (${dept}-${cls})`;
+    const res = await secureFetch("/api/admin/lock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ department: dept, class: cls, student })
+        body: JSON.stringify({ roll: student, reason, seconds })
     });
-
+    if (!res.ok) return alert("Failed to apply lock");
     alert("Lock applied.");
 }
 
@@ -158,15 +142,7 @@ async function applySpecificLock() {
 // AUTO LOCK
 // =====================================================
 async function saveAutoLock() {
-    const threshold = document.getElementById("autoLockSelect").value;
-
-    await secureFetch("/api/chat/auto-lock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threshold })
-    });
-
-    alert("Updated.");
+    alert("Auto-lock policy managed server-side. No client endpoint.");
 }
 
 
@@ -174,18 +150,18 @@ async function saveAutoLock() {
 // WARNINGS
 // =====================================================
 async function displayWarnings() {
-    const res = await secureFetch("/api/warnings");
-    const warnings = await res.json();
-
+    // Show current warning counts from students list
+    const res = await secureFetch("/api/admin/students");
+    const students = await res.json();
     const table = document.querySelector("#warningsTable");
-    table.innerHTML = `<tr><th>Student</th><th>Violation</th><th>Date</th></tr>`;
-
-    warnings.forEach(w => {
+    table.innerHTML = `<tr><th>Roll</th><th>Name</th><th>Warnings Count</th><th>Locked Until</th></tr>`;
+    students.forEach(s => {
         table.innerHTML += `
             <tr>
-                <td>${escapeHTML(w.student)}</td>
-                <td>${escapeHTML(w.message)}</td>
-                <td>${new Date(w.date).toLocaleString()}</td>
+                <td>${escapeHTML(s.roll || "")}</td>
+                <td>${escapeHTML(s.name || "")}</td>
+                <td>${escapeHTML(String(s.warningsCount ?? 0))}</td>
+                <td>${s.lockedUntil ? new Date(s.lockedUntil).toLocaleString() : ""}</td>
             </tr>
         `;
     });
@@ -196,7 +172,7 @@ async function displayWarnings() {
 // USER MANAGEMENT
 // =====================================================
 async function loadUsers() {
-    const res = await secureFetch("/api/users");
+    const res = await secureFetch("/api/admin/students");
     const users = await res.json();
 
     const table = document.querySelector("#usersTable");

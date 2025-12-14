@@ -199,6 +199,66 @@ Documentation/
 ├── README.md           # Complete project documentation
 ├── QUICK_START.md      # Quick setup guide (5 min)
 ├── FIXES_APPLIED.md    # This file - what was fixed
+
+---
+
+## 👤 Admin Account Creation
+
+- **Where it is stored (MongoDB):** Admin users are stored in the same collection as students: the `students` collection. The `role` field distinguishes admins from regular students.
+- **Mongoose model:** `Student` with `role` in [`server.js`](server.js#L124-L160).
+- **Key fields:**
+   - **`roll`**: unique identifier (string)
+   - **`name`**: full name
+   - **`dept`**: department
+   - **`cls`**: class or designation (for admins, use `Admin` or similar)
+   - **`email`**: optional
+   - **`passwordHash`**: stored hashed automatically via the register API
+   - **`role`**: must be `admin` for admin accounts
+   - Other: `avatarUrl`, `bgColor`, `settings`, `refreshTokens`, `timestamps`
+
+### Recommended: Create via API (handles hashing, tokens, CSRF)
+
+1) Get CSRF token (sets cookie):
+
+```bash
+curl -s -c cookies.txt "https://smart-chatbot-backend-w5tq.onrender.com/api/csrf-token" > csrf.json
+CSRF=$(jq -r '.csrfToken' csrf.json)
+```
+
+2) Register the admin user:
+
+```bash
+curl -s -b cookies.txt -H "Content-Type: application/json" \
+       -H "x-csrf-token: $CSRF" \
+       -X POST "https://smart-chatbot-backend-w5tq.onrender.com/api/auth/register" \
+       -d '{
+          "roll": "ADM001",
+          "name": "Admin User",
+          "dept": "Administration",
+          "cls": "Admin",
+          "email": "admin@example.com",
+          "role": "admin",
+          "password": "StrongPass123!"
+       }'
+```
+
+- On success, the document appears in MongoDB under `students` with `role: "admin"` and a hashed password.
+- After login, admin-only routes require JWT auth and pass `requireAdmin` checks.
+
+### Alternative: Promote an existing user
+
+If a student already exists, you can promote to admin by updating `role` to `admin`:
+
+```js
+// In a Node script or Mongo shell
+db.students.updateOne({ roll: "S123" }, { $set: { role: "admin" } });
+```
+
+Note: If creating directly in Mongo, you must set `passwordHash` with bcrypt yourself. Prefer using the register API to avoid manual hashing.
+
+### Admin API key (server-to-server)
+
+Some admin operations also support an `ADMIN_API_KEY` path for server-to-server ops. Configure `ADMIN_API_KEY` in `.env` and use the `x-admin-key` header for those routes. Role-based admin accounts still work for dashboard operations via JWT.
 ├── .env.example        # Environment variable template
 └── In-code comments    # Detailed comments in server.js
 ```
