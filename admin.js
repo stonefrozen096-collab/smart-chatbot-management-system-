@@ -3,14 +3,32 @@
 ===================================================== */
 
 const API = "https://smart-chatbot-backend-w5tq.onrender.com";
+let csrfToken = "";
 
 // Get token from storage (set during login in index.html)
 function getToken() {
   return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
 }
 
-// Get CSRF from cookies
+// Fetch CSRF token from server
+async function loadCSRF() {
+  try {
+    const res = await fetch(`${API}/api/csrf-token`, {
+      method: "GET",
+      credentials: "include"
+    });
+    const data = await res.json();
+    csrfToken = data.csrfToken || "";
+    return csrfToken;
+  } catch (e) {
+    console.error("CSRF token fetch failed:", e);
+    return "";
+  }
+}
+
+// Get CSRF from cookies (fallback)
 function getCSRF() {
+  if (csrfToken) return csrfToken;
   const cookies = document.cookie.split('; ');
   const csrfCookie = cookies.find(c => c.startsWith('csrf_token='));
   return csrfCookie ? csrfCookie.split('=')[1] : '';
@@ -19,7 +37,7 @@ function getCSRF() {
 // Secure fetch with auth headers
 async function secureFetch(url, options = {}) {
   const token = getToken();
-  const csrf = getCSRF();
+  let csrf = csrfToken || getCSRF();
   
   if (!token) {
     alert('Session expired. Please login again.');
@@ -36,6 +54,8 @@ async function secureFetch(url, options = {}) {
     const res = await fetch(url, options);
     if (res.status === 401 || res.status === 403) {
       alert('Unauthorized. Redirecting to login...');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
       window.location.href = 'index.html';
       return null;
     }
@@ -388,7 +408,13 @@ async function uploadCoursePlan() {
   formData.append('name', nameInput?.value || file.name);
   
   const token = getToken();
-  const csrf = getCSRF();
+  const csrf = csrfToken || getCSRF();
+  
+  if (!csrf) {
+    alert('❌ CSRF token missing. Refreshing page...');
+    await loadCSRF();
+    return;
+  }
   
   try {
     const res = await fetch(`${API}/api/course-plan`, {
@@ -523,6 +549,10 @@ async function initAdmin() {
     window.location.href = 'index.html';
     return;
   }
+  
+  // IMPORTANT: Load CSRF token first!
+  await loadCSRF();
+  console.log("✅ CSRF Token loaded:", csrfToken ? "Yes" : "No");
   
   // Load all data
   await loadDashboardStats();
