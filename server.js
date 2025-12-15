@@ -156,7 +156,11 @@ studentSchema.methods.verifyPassword = async function (plain) {
 };
 const Student = mongoose.model("Student", studentSchema);
 
-const coursePlanSchema = new Schema({ name: String, uploadedAt: { type: Date, default: Date.now } });
+const coursePlanSchema = new Schema({ 
+  name: String, 
+  content: { type: String, default: '' }, // Base64 encoded PDF or text content
+  uploadedAt: { type: Date, default: Date.now } 
+});
 const CoursePlan = mongoose.model("CoursePlan", coursePlanSchema);
 
 const chatHistorySchema = new Schema(
@@ -728,12 +732,29 @@ app.patch("/api/me/settings", authenticate, csrfProtect, async (req, res) => {
 });
 
 // ---------------------- Course Plans ----------------------
-app.post("/api/course-plan", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+// Setup multer for course plan uploads
+let planUpload = null;
+try {
+  const multerMod = (await import("multer")).default;
+  planUpload = multerMod({ storage: multerMod.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
+} catch (e) {
+  console.warn("Multer not available for course plan uploads");
+}
+
+app.post("/api/course-plan", authenticate, requireAdmin, csrfProtect, planUpload ? planUpload.single("file") : (req, res, next) => next(), async (req, res) => {
   try {
-    const { name } = req.body;
+    let name = req.body?.name || '';
+    let content = '';
+    
+    if (req.file) {
+      // File upload via FormData
+      name = name || req.file.originalname;
+      content = req.file.buffer.toString('base64'); // Store as base64 for PDFs
+    }
+    
     if (!name) return res.status(400).json({ error: "File name required" });
 
-    const plan = new CoursePlan({ name });
+    const plan = new CoursePlan({ name, content: content || '' });
     await plan.save();
     io.emit("coursePlan:updated", plan);
     res.json(plan);
@@ -745,10 +766,33 @@ app.post("/api/course-plan", authenticate, requireAdmin, csrfProtect, async (req
 
 app.get("/api/course-plan", authenticate, csrfProtect, async (req, res) => {
   try {
-    const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(200);
+    const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(200).select('-content'); // exclude large content
     res.json(plans);
   } catch (err) {
     console.error("course plan list error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/api/course-plan/:id", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const plan = await CoursePlan.findById(req.params.id);
+    if (!plan) return res.status(404).json({ error: "Course plan not found" });
+    res.json(plan);
+  } catch (err) {
+    console.error("get course plan error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.delete("/api/course-plan/:id", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const plan = await CoursePlan.findByIdAndDelete(req.params.id);
+    if (!plan) return res.status(404).json({ error: "Course plan not found" });
+    io.emit("coursePlan:deleted", { id: req.params.id });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("delete course plan error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

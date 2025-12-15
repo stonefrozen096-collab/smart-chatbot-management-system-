@@ -260,10 +260,25 @@ async function sendMessage(){
   showTyping(true);
 
   try{
+    // Load course plans for context
+    let coursePlanContext = '';
+    try {
+      const plansRes = await fetch(`${API_URL}/api/course-plan`, { headers: { "Authorization": "Bearer "+TOKEN } });
+      if (plansRes.ok) {
+        const plans = await plansRes.json();
+        if (Array.isArray(plans) && plans.length > 0) {
+          const planNames = plans.map(p => p.name).join(', ');
+          coursePlanContext = `Available course plans: ${planNames}. `;
+        }
+      }
+    } catch (e) {}
+    
+    const enhancedMessage = coursePlanContext + message;
+    
     const res = await fetch(`${API_URL}/api/chat`,{
       method:"POST",
       headers:{ "Content-Type":"application/json","Authorization":"Bearer "+TOKEN, "x-csrf-token": csrfToken },
-      body:JSON.stringify({ roll:studentProfile.roll, sender:"user", message, useGemini:true })
+      body:JSON.stringify({ roll:studentProfile.roll, sender:"user", message: enhancedMessage, useGemini:true })
     });
     const data = await res.json();
     // If HTTP returned assistant reply, render immediately (fallback if sockets delayed)

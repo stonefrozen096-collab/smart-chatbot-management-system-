@@ -263,14 +263,15 @@
 
         <div class="card">
             <h3>Upload Course Plan (PDF)</h3>
-            <input type="file" id="fileInput" accept="application/pdf">
-            <button id="uploadPlanBtn">Upload</button>
+            <input type="text" id="planName" placeholder="Optional: Plan name (auto-detect from file)">
+            <input type="file" id="planFile" accept="application/pdf">
+            <button id="planBtn" onclick="uploadCoursePlan()">Upload PDF</button>
         </div>
 
         <div class="card">
             <h3>Uploaded Course Plans</h3>
-            <table id="coursePlansTable">
-                <tr><th>File</th><th>Date</th><th>Action</th></tr>
+            <table id="plansTable">
+                <tr><th>File</th><th>Uploaded</th><th>Action</th></tr>
             </table>
         </div>
     </div>
