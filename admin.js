@@ -12,7 +12,7 @@ function getToken() {
 // Get CSRF from cookies
 function getCSRF() {
   const cookies = document.cookie.split('; ');
-  const csrfCookie = cookies.find(c => c.startsWith('csrfToken='));
+  const csrfCookie = cookies.find(c => c.startsWith('csrf_token='));
   return csrfCookie ? csrfCookie.split('=')[1] : '';
 }
 
@@ -74,34 +74,79 @@ async function logout() {
 }
 
 // ========== 1. STUDENT MANAGEMENT ==========
+let allStudents = [];
+
 async function loadStudents() {
-  const res = await secureFetch(`${API}/api/admin/students?perPage=100`);
+  const res = await secureFetch(`${API}/api/admin/students?perPage=1000`);
   if (!res || !res.ok) { alert('Failed to load students'); return; }
   
   const students = await res.json();
-  const table = document.querySelector('#studentsTable tbody') || document.querySelector('#studentsTable');
-  table.innerHTML = '';
+  allStudents = Array.isArray(students) ? students : [];
   
-  (Array.isArray(students) ? students : []).forEach(s => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${escapeHTML(s.roll)}</td>
-      <td>${escapeHTML(s.name)}</td>
-      <td>${escapeHTML(s.email || '—')}</td>
-      <td>${escapeHTML(s.dept)}</td>
-      <td>${s.lockedUntil ? '🔒 Locked' : '✅ Active'}</td>
-      <td>
-        <button class="btn-small" onclick="selectStudent('${s.roll}')">Select</button>
-      </td>
-    `;
-    table.appendChild(row);
-  });
+  const table = document.querySelector('#studentsTable tbody') || document.querySelector('#studentsTable');
+  if (table) {
+    table.innerHTML = '';
+    allStudents.forEach(s => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${escapeHTML(s.roll)}</td>
+        <td>${escapeHTML(s.name)}</td>
+        <td>${escapeHTML(s.email || '—')}</td>
+        <td>${escapeHTML(s.dept)}</td>
+        <td>${s.lockedUntil ? '🔒 Locked' : '✅ Active'}</td>
+        <td>
+          <button class="btn-small" onclick="selectStudent('${s.roll}')">Select</button>
+        </td>
+      `;
+      table.appendChild(row);
+    });
+  }
+  
+  // Update users table with actions
+  const usersTable = document.querySelector('#usersTable tbody') || document.querySelector('#usersTable');
+  if (usersTable) {
+    // Clear existing rows except header
+    const rows = usersTable.querySelectorAll('tr');
+    rows.forEach((r, idx) => { if (idx > 0) r.remove(); });
+    
+    allStudents.forEach(s => {
+      const row = document.createElement('tr');
+      const status = s.lockedUntil && new Date(s.lockedUntil) > new Date() ? '🔒 Locked' : '✅ Active';
+      row.innerHTML = `
+        <td>${escapeHTML(s.roll)}</td>
+        <td>${escapeHTML(s.name)}</td>
+        <td>${escapeHTML(s.dept)}</td>
+        <td>${escapeHTML(s.cls || '—')}</td>
+        <td>${status}</td>
+        <td>
+          <button onclick="viewStudentQR('${s.roll}', '${escapeHTML(s.name)}', '${escapeHTML(s.dept)}')" title="View QR Code" style="padding:5px 8px;font-size:12px;">🔲 QR</button>
+          <button onclick="viewStudentDetail('${s.roll}')" title="View Details & History" style="padding:5px 8px;font-size:12px;">👁️ View</button>
+          <button onclick="selectStudent('${s.roll}')" title="Select" style="padding:5px 8px;font-size:12px;">✔️ Select</button>
+        </td>
+      `;
+      usersTable.appendChild(row);
+    });
+  }
 }
 
 function selectStudent(roll) {
   ['studentLock', 'studentWarning', 'studentMessage'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = roll;
+  });
+  alert(`✅ Selected student: ${roll}`);
+}
+
+function filterUsers() {
+  const searchTerm = document.getElementById('userSearchInput')?.value.toLowerCase() || '';
+  const usersTable = document.getElementById('usersTable');
+  if (!usersTable) return;
+  
+  const rows = usersTable.querySelectorAll('tr');
+  rows.forEach((row, idx) => {
+    if (idx === 0) return; // Skip header
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(searchTerm) ? '' : 'none';
   });
 }
 
@@ -522,3 +567,141 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('planBtn')?.addEventListener('click', uploadCoursePlan);
   document.getElementById('refreshBtn')?.addEventListener('click', initAdmin);
 });
+
+// ========== QR CODE VIEWING ==========
+function viewStudentQR(roll, name, dept) {
+  const modal = document.getElementById('qrModal');
+  const container = document.getElementById('qrCodeContainer');
+  const info = document.getElementById('qrStudentInfo');
+  
+  if (!modal || !container || !info) return;
+  
+  // Clear previous QR code
+  container.innerHTML = '';
+  
+  // Generate QR code with student info
+  const qrData = JSON.stringify({
+    roll: roll,
+    name: name,
+    dept: dept,
+    verified: true,
+    timestamp: new Date().toISOString()
+  });
+  
+  try {
+    new QRCode(container, {
+      text: qrData,
+      width: 256,
+      height: 256,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  } catch (e) {
+    container.innerHTML = '<p style="color:red;">QR Code library not loaded</p>';
+  }
+  
+  info.textContent = `${name} (${roll}) - ${dept}`;
+  modal.style.display = 'flex';
+}
+
+function closeQRModal() {
+  const modal = document.getElementById('qrModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// ========== STUDENT DETAIL VIEWING ==========
+async function viewStudentDetail(roll) {
+  const modal = document.getElementById('studentDetailModal');
+  if (!modal) return;
+  
+  modal.style.display = 'flex';
+  
+  const nameEl = document.getElementById('detailStudentName');
+  const infoEl = document.getElementById('detailStudentInfo');
+  const chatEl = document.getElementById('detailChatHistory');
+  const warningsEl = document.getElementById('detailWarnings');
+  
+  if (nameEl) nameEl.textContent = `Student Details: ${roll}`;
+  if (infoEl) infoEl.innerHTML = '<p>Loading student info...</p>';
+  if (chatEl) chatEl.innerHTML = '<p style="opacity:0.6;">Loading chat history...</p>';
+  if (warningsEl) warningsEl.innerHTML = '<p>Loading warnings...</p>';
+  
+  // Load student info
+  try {
+    const student = allStudents.find(s => s.roll === roll);
+    if (student && infoEl) {
+      const status = student.lockedUntil && new Date(student.lockedUntil) > new Date() ? '🔒 Locked' : '✅ Active';
+      infoEl.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;font-size:14px;">
+          <div><strong>Roll:</strong> ${escapeHTML(student.roll)}</div>
+          <div><strong>Name:</strong> ${escapeHTML(student.name)}</div>
+          <div><strong>Department:</strong> ${escapeHTML(student.dept)}</div>
+          <div><strong>Class:</strong> ${escapeHTML(student.cls || '—')}</div>
+          <div><strong>Email:</strong> ${escapeHTML(student.email || '—')}</div>
+          <div><strong>Status:</strong> ${status}</div>
+        </div>
+      `;
+    }
+  } catch (e) {
+    console.error('Error loading student info:', e);
+  }
+  
+  // Load chat history
+  try {
+    const chatRes = await secureFetch(`${API}/api/chat/${roll}`);
+    if (chatRes && chatRes.ok && chatEl) {
+      const history = await chatRes.json();
+      if (Array.isArray(history) && history.length > 0) {
+        const last50 = history.slice(0, 50);
+        chatEl.innerHTML = last50.map(msg => {
+          const senderStyle = msg.sender === 'user' ? 'background:rgba(59,130,246,0.2);' : 'background:rgba(34,197,94,0.2);';
+          const senderIcon = msg.sender === 'user' ? '👤' : '🤖';
+          return `
+            <div style="${senderStyle}padding:10px;margin:5px 0;border-radius:8px;">
+              <div style="font-size:11px;opacity:0.8;margin-bottom:3px;">
+                ${senderIcon} ${msg.sender} • ${msg.time || new Date(msg.createdAt).toLocaleString()}
+              </div>
+              <div style="font-size:13px;">${escapeHTML(msg.message)}</div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        chatEl.innerHTML = '<p style="opacity:0.6;">No chat history found</p>';
+      }
+    } else {
+      chatEl.innerHTML = '<p style="color:red;">Failed to load chat history</p>';
+    }
+  } catch (e) {
+    console.error('Error loading chat history:', e);
+    if (chatEl) chatEl.innerHTML = '<p style="color:red;">Error loading chat history</p>';
+  }
+  
+  // Load warnings
+  try {
+    const warnRes = await secureFetch(`${API}/api/admin/warnings/${roll}`);
+    if (warnRes && warnRes.ok && warningsEl) {
+      const warnings = await warnRes.json();
+      if (Array.isArray(warnings) && warnings.length > 0) {
+        warningsEl.innerHTML = warnings.map(w => `
+          <div style="background:rgba(239,68,68,0.2);padding:10px;margin:5px 0;border-radius:8px;font-size:13px;">
+            <strong>⚠️ ${escapeHTML(w.reason || 'Warning')}</strong><br>
+            <span style="opacity:0.8;font-size:11px;">${new Date(w.createdAt).toLocaleString()}</span>
+          </div>
+        `).join('');
+      } else {
+        warningsEl.innerHTML = '<p style="opacity:0.6;">No warnings</p>';
+      }
+    } else {
+      warningsEl.innerHTML = '<p style="color:red;">Failed to load warnings</p>';
+    }
+  } catch (e) {
+    console.error('Error loading warnings:', e);
+    if (warningsEl) warningsEl.innerHTML = '<p style="color:red;">Error loading warnings</p>';
+  }
+}
+
+function closeStudentDetailModal() {
+  const modal = document.getElementById('studentDetailModal');
+  if (modal) modal.style.display = 'none';
+}

@@ -317,386 +317,50 @@
         <h2>👥 User Management</h2>
 
         <div class="card">
-            <h3>All Users</h3>
-            <input type="text" id="userSearchInput" placeholder="Search users...">
+            <h3>All Students</h3>
+            <input type="text" id="userSearchInput" placeholder="Search by name or roll..." onkeyup="filterUsers()">
             <table id="usersTable">
-                <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr>
+                <tr><th>Roll</th><th>Name</th><th>Dept</th><th>Class</th><th>Status</th><th>Actions</th></tr>
             </table>
         </div>
     </div>
 
 </div>
 
+<!-- QR Code Modal -->
+<div id="qrModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#1e293b;padding:30px;border-radius:15px;text-align:center;max-width:400px;">
+        <h3>Student QR Code</h3>
+        <div id="qrCodeContainer" style="margin:20px 0;background:white;padding:20px;border-radius:10px;display:inline-block;"></div>
+        <p id="qrStudentInfo" style="font-size:14px;margin:10px 0;"></p>
+        <button onclick="closeQRModal()" style="margin-top:15px;">Close</button>
+    </div>
+</div>
+
+<!-- Student Detail Modal -->
+<div id="studentDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;">
+    <div style="background:#1e293b;padding:30px;border-radius:15px;max-width:800px;width:90%;margin:20px;max-height:90vh;overflow-y:auto;">
+        <h3 id="detailStudentName">Student Details</h3>
+        <div id="detailStudentInfo" style="margin:20px 0;"></div>
+        
+        <div style="margin:20px 0;">
+            <h4>💬 Chat History (Last 50 messages)</h4>
+            <div id="detailChatHistory" style="max-height:300px;overflow-y:auto;background:rgba(0,0,0,0.3);padding:15px;border-radius:10px;">
+                <p style="opacity:0.6;">Loading chat history...</p>
+            </div>
+        </div>
+        
+        <div style="margin:20px 0;">
+            <h4>⚠️ Warnings</h4>
+            <div id="detailWarnings"></div>
+        </div>
+        
+        <button onclick="closeStudentDetailModal()" style="margin-top:15px;">Close</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="admin.js"></script>
-
-<script>
-// SECTION SWITCHING
-function showSection(id) {
-    document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
-    document.getElementById(id).classList.add("active");
-}
-
-// LOGOUT SECURELY
-function logout() {
-    fetch("/api/admin/logout", { method: "POST", credentials: "include" })
-        .then(() => window.location.href = "/index.html")
-        .catch(() => window.location.href = "/index.html");
-}
-
-// CONNECT BUTTONS TO admin.js
-document.getElementById("uploadPlanBtn").addEventListener("click", uploadPlan);
-document.getElementById("lockAllBtn").addEventListener("click", globalLock);
-document.getElementById("unlockAllBtn").addEventListener("click", globalUnlock);
-document.getElementById("applySpecificLockBtn").addEventListener("click", applySpecificLock);
-document.getElementById("saveAutoLockBtn").addEventListener("click", saveAutoLock);
-
-document.getElementById("userSearchInput").addEventListener("input", searchUsers);
-
-// ========== MODERN ADMIN FEATURES ==========
-
-// Dark Mode Toggle
-function toggleDarkMode() {
-    const isDark = document.documentElement.classList.toggle('dark-mode');
-    localStorage.setItem('adminDarkMode', isDark);
-}
-
-// Initialize Dark Mode
-if (localStorage.getItem('adminDarkMode') === 'true') {
-    document.documentElement.classList.add('dark-mode');
-}
-
-// Add dark mode CSS dynamically
-const darkModeStyle = document.createElement('style');
-darkModeStyle.textContent = `
-    html.dark-mode { --dark-bg: #0a0e27; --dark-card: #1a2332; }
-    html.dark-mode body { background: linear-gradient(135deg,#0a0e27,#1a1f3a) !important; }
-    html.dark-mode .sidebar { background: rgba(20,20,20,0.9) !important; }
-    html.dark-mode .content { background: linear-gradient(to bottom, rgba(10,14,39,0.6), rgba(26,35,50,0.6)); }
-    html.dark-mode .card { background: rgba(30,40,60,0.8) !important; border: 1px solid rgba(255,255,255,0.05); }
-`;
-document.head.appendChild(darkModeStyle);
-
-// Load Admin Analytics
-async function loadAnalytics() {
-    try {
-        const res = await fetch('/api/admin/students', {
-            headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
-        });
-        const students = await res.json();
-        
-        document.getElementById('totalStudents').textContent = students.length || 0;
-        document.getElementById('lockedCount').textContent = students.filter(s => s.locked).length || 0;
-        document.getElementById('warnedCount').textContent = students.filter(s => s.warningsCount > 0).length || 0;
-        document.getElementById('activeToday').textContent = Math.floor(Math.random() * students.length) || 0;
-    } catch(err) { console.error('Analytics error:', err); }
-}
-
-// Apply Filters
-async function applyFilters() {
-    const name = document.getElementById('searchName').value.toLowerCase();
-    const dept = document.getElementById('filterDept').value;
-    const cls = document.getElementById('filterClass').value;
-    const status = document.getElementById('filterStatus').value;
-    
-    try {
-        const res = await fetch('/api/admin/students', {
-            headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
-        });
-        let students = await res.json();
-        
-        students = students.filter(s => 
-            (s.name.toLowerCase().includes(name) || s.roll.toLowerCase().includes(name)) &&
-            (!dept || s.dept === dept) &&
-            (!cls || s.cls === cls) &&
-            (!status || (status === 'Locked' && s.locked) || (status === 'Warned' && s.warningsCount > 0) || (status === 'Active' && !s.locked))
-        );
-        
-        const resultsDiv = document.getElementById('searchResults');
-        if (students.length === 0) {
-            resultsDiv.innerHTML = '<p style="opacity:0.7;">No students found</p>';
-            return;
-        }
-        
-        resultsDiv.innerHTML = `<p><strong>${students.length}</strong> student(s) found</p>` +
-            students.map(s => `<div style="padding:10px;background:rgba(255,255,255,0.05);margin:5px;border-radius:8px;">
-                <strong>${s.name}</strong> (${s.roll}) - ${s.dept} - ${s.cls}
-                ${s.locked ? '🔒 LOCKED' : ''} ${s.warningsCount > 0 ? '⚠️ ' + s.warningsCount + ' warning(s)' : ''}
-            </div>`).join('');
-    } catch(err) { console.error('Filter error:', err); }
-}
-
-// Export Student Data as CSV
-async function exportStudentData() {
-    try {
-        const res = await fetch('/api/admin/students', {
-            headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
-        });
-        const students = await res.json();
-        
-        let csv = 'Roll,Name,Department,Class,Status,Warnings\n';
-        students.forEach(s => {
-            csv += `${s.roll},"${s.name}",${s.dept},${s.cls},"${s.locked ? 'LOCKED' : 'ACTIVE'}",${s.warningsCount}\n`;
-        });
-        
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `students-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-    } catch(err) { alert('Export failed'); console.error(err); }
-}
-
-// Create Notice
-async function createNotice() {
-    const title = document.getElementById('noticeTitle').value.trim();
-    const body = document.getElementById('noticeBody').value.trim();
-    const urgent = document.getElementById('noticeUrgent').checked;
-    
-    if (!title || !body) return alert('Fill all fields');
-    
-    try {
-        const res = await fetch('/api/admin/notice', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ title, body, urgent })
-        });
-        if (res.ok) {
-            alert('Notice created!');
-            document.getElementById('noticeTitle').value = '';
-            document.getElementById('noticeBody').value = '';
-            document.getElementById('noticeUrgent').checked = false;
-        }
-    } catch(err) { alert('Error creating notice'); console.error(err); }
-}
-
-// Send Mass Notification
-async function sendMassNotification() {
-    const message = document.getElementById('notifyMessage').value.trim();
-    if (!message) return alert('Enter message');
-    alert('✅ Notification queued for delivery\n\n' + message);
-}
-
-// ========== AUTOMATED MESSAGING FUNCTIONS ==========
-
-// Toggle Schedule Time Input
-document.getElementById('msgSchedule')?.addEventListener('change', (e) => {
-    document.getElementById('msgScheduleTime').style.display = e.target.checked ? 'block' : 'none';
-});
-
-// Send Direct Message to Students
-async function sendDirectMessage() {
-    const title = document.getElementById('msgTitle').value.trim();
-    const content = document.getElementById('msgContent').value.trim();
-    const type = document.getElementById('msgType').value;
-    const recipientStr = document.getElementById('msgRecipients').value.trim();
-    const schedule = document.getElementById('msgSchedule').checked;
-    const scheduledTime = document.getElementById('msgScheduleTime').value;
-
-    if (!title || !content || !recipientStr) return alert('Fill all fields');
-    
-    const recipients = recipientStr.split(',').map(r => r.trim()).filter(r => r);
-    
-    try {
-        const res = await fetch('/api/admin/send-message', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json',
-                'x-csrf-token': csrfToken || ''
-            },
-            body: JSON.stringify({
-                recipients,
-                title,
-                content,
-                type,
-                scheduledFor: schedule ? new Date(scheduledTime).toISOString() : null
-            })
-        });
-        
-        const data = await res.json();
-        if (res.ok) {
-            alert(`✅ Message sent to ${data.sentTo} student(s)${data.scheduled ? ' (scheduled)' : ''}!`);
-            document.getElementById('msgTitle').value = '';
-            document.getElementById('msgContent').value = '';
-            document.getElementById('msgRecipients').value = '';
-            document.getElementById('msgSchedule').checked = false;
-        } else {
-            alert('Error: ' + data.error);
-        }
-    } catch(err) { 
-        alert('Failed to send message'); 
-        console.error(err); 
-    }
-}
-
-// Send Broadcast Message
-async function sendBroadcast() {
-    const filter = document.getElementById('broadcastFilter').value;
-    const title = document.getElementById('broadcastTitle').value.trim();
-    const content = document.getElementById('broadcastContent').value.trim();
-
-    if (!title || !content) return alert('Fill all fields');
-
-    try {
-        let filterObj = {};
-        if (filter === 'dept') filterObj.dept = prompt('Enter department:');
-        if (filter === 'locked') filterObj.locked = true;
-
-        const res = await fetch('/api/admin/broadcast-message', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json',
-                'x-csrf-token': csrfToken || ''
-            },
-            body: JSON.stringify({
-                title,
-                content,
-                filter: Object.keys(filterObj).length > 0 ? filterObj : null
-            })
-        });
-
-        const data = await res.json();
-        if (res.ok) {
-            alert(`✅ Broadcast sent to ${data.sentTo} student(s)!`);
-            document.getElementById('broadcastTitle').value = '';
-            document.getElementById('broadcastContent').value = '';
-        } else {
-            alert('Error: ' + data.error);
-        }
-    } catch(err) { 
-        alert('Failed to send broadcast'); 
-        console.error(err); 
-    }
-}
-
-// Save Current Message as Template
-async function saveAsTemplate() {
-    const name = prompt('Template name:');
-    if (!name) return;
-    
-    const title = document.getElementById('msgTitle').value.trim();
-    const content = document.getElementById('msgContent').value.trim();
-    const type = document.getElementById('msgType').value;
-
-    if (!title || !content) return alert('Fill message fields first');
-
-    try {
-        const res = await fetch('/api/admin/message-templates', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json',
-                'x-csrf-token': csrfToken || ''
-            },
-            body: JSON.stringify({
-                name,
-                title,
-                content,
-                type,
-                category: 'custom'
-            })
-        });
-
-        if (res.ok) {
-            alert('✅ Template saved!');
-            loadTemplates();
-        } else {
-            alert('Error saving template');
-        }
-    } catch(err) { 
-        alert('Failed to save template'); 
-        console.error(err); 
-    }
-}
-
-// Load Templates
-async function loadTemplates() {
-    try {
-        const res = await fetch('/api/admin/message-templates', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'x-csrf-token': csrfToken || ''
-            }
-        });
-        
-        const data = await res.json();
-        const select = document.getElementById('templateSelect');
-        const list = document.getElementById('templateList');
-        
-        select.innerHTML = '<option>Load a Template</option>';
-        list.innerHTML = '';
-        
-        data.templates.forEach(t => {
-            select.innerHTML += `<option value="${t._id}">${t.name} (${t.type})</option>`;
-            list.innerHTML += `<div style="padding:8px;background:rgba(255,255,255,0.05);margin:5px;border-radius:6px;font-size:12px;">
-                <strong>${t.name}</strong> - ${t.title}
-            </div>`;
-        });
-    } catch(err) { 
-        console.error('Failed to load templates', err); 
-    }
-}
-
-// Load Template into Form
-async function loadTemplate() {
-    const templateId = document.getElementById('templateSelect').value;
-    if (!templateId || templateId === '') return alert('Select a template');
-
-    try {
-        const res = await fetch(`/api/admin/message-templates`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'x-csrf-token': csrfToken || ''
-            }
-        });
-        
-        const data = await res.json();
-        const template = data.templates.find(t => t._id === templateId);
-        
-        if (template) {
-            document.getElementById('msgTitle').value = template.title;
-            document.getElementById('msgContent').value = template.content;
-            document.getElementById('msgType').value = template.type;
-            alert('✅ Template loaded!');
-        }
-    } catch(err) { 
-        alert('Failed to load template'); 
-        console.error(err); 
-    }
-}
-
-// Load templates on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadTemplates();
-});
-
-// Load Audit Logs
-async function loadAuditLogs() {
-    const logs = [
-        '⏰ 2025-12-11 10:45 - Admin locked account: 21CS001',
-        '⏰ 2025-12-11 10:30 - Warning issued to: 21CS045',
-        '⏰ 2025-12-11 09:15 - Notice created: "Final Exam Schedule"',
-        '⏰ 2025-12-11 08:50 - Admin exported student data',
-        '⏰ 2025-12-10 15:20 - Course plan uploaded'
-    ];
-    document.getElementById('auditLogs').innerHTML = logs.map(log => `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">${log}</div>`).join('');
-}
-
-// INITIAL LOAD
-window.onload = async () => {
-    await displayPlans();
-    await displayWarnings();
-    await loadUsers();
-    await loadAnalytics();
-    await loadAuditLogs();
-};
-</script>
 
 </body>
 </html>
