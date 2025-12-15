@@ -300,9 +300,29 @@
   }
   const jwtPayload = parseJwt(token);
   const userRoll = jwtPayload?.sub || jwtPayload?.roll || jwtPayload?.username || null;
+  
+  let csrfToken = "";
+  
+  // Load CSRF token
+  async function loadCSRF() {
+    try {
+      const res = await fetch(`${API}/api/csrf-token`, { method: "GET", credentials: "include" });
+      const data = await res.json();
+      csrfToken = data.csrfToken || "";
+    } catch (e) {
+      console.error("CSRF token fetch failed:", e);
+    }
+  }
+  
+  // Call this on page load
+  loadCSRF();
 
   function authHeaders() {
-    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+    if (csrfToken) {
+      headers['x-csrf-token'] = csrfToken;
+    }
+    return headers;
   }
 
   // ---------- DOM ----------

@@ -741,7 +741,7 @@ try {
   console.warn("Multer not available for course plan uploads");
 }
 
-app.post("/api/course-plan", authenticate, requireAdmin, csrfProtect, planUpload ? planUpload.single("file") : (req, res, next) => next(), async (req, res) => {
+app.post("/api/course-plan", authenticate, requireAdmin, planUpload ? planUpload.single("file") : (req, res, next) => next(), csrfProtect, async (req, res) => {
   try {
     let name = req.body?.name || '';
     let content = '';
@@ -1405,50 +1405,6 @@ app.post("/api/admin/send-template-message", authenticate, requireAdmin, csrfPro
     res.status(201).json({ ok: true, sentTo: recipients.length });
   } catch(err) {
     console.error("template message error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Auto-send message when account is locked
-app.post("/api/admin/lock", authenticate, requireAdmin, csrfProtect, async (req, res) => {
-  try {
-    const { roll, reason, hours } = req.body;
-    
-    const student = await Student.findOne({ roll });
-    if (!student) return res.status(404).json({ error: "Student not found" });
-
-    const lockDuration = hours ? new Date(Date.now() + hours * 3600 * 1000) : new Date(Date.now() + 24 * 3600 * 1000);
-    
-    await Student.updateOne(
-      { roll },
-      { $set: { lockedUntil: lockDuration } }
-    );
-
-    const lock = new Lock({ roll, reason, lockedBy: req.student.roll, expiresAt: lockDuration });
-    await lock.save();
-
-    // Auto-send lock notification message
-    const lockMessage = new SystemMessage({
-      recipientRoll: roll,
-      title: "⛔ Account Locked",
-      content: `Your account has been locked. Reason: ${reason || "Policy violation"}. It will be unlocked on ${lockDuration.toLocaleDateString()}. Contact admin if you believe this is a mistake.`,
-      type: "alert",
-      trigger: "locked",
-      expiresAt: lockDuration,
-    });
-    await lockMessage.save();
-
-    // Notify via Socket.IO
-    io.emit(`message:${roll}`, {
-      title: "⛔ Account Locked",
-      content: lockMessage.content,
-      type: "alert",
-      sentAt: new Date(),
-    });
-
-    res.json({ ok: true, message: "Account locked and notification sent" });
-  } catch(err) {
-    console.error("lock error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
