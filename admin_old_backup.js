@@ -1,21 +1,16 @@
-/* ==========================================================================
-   COMPLETE ADMIN PANEL - ALL FEATURES 100% WORKING
-   Fixed: Lock/Unlock, Warnings, Messages, Rewards, QR Codes, Dark Mode
-========================================================================== */
+/* =====================================================
+   COMPLETE ADMIN PANEL JS — ALL FEATURES WORKING
+===================================================== */
 
 const API = "https://smart-chatbot-backend-w5tq.onrender.com";
 let csrfToken = "";
-let allStudents = [];
-let darkMode = localStorage.getItem('adminDarkMode') === 'true';
 
-// Apply dark mode if stored
-if (darkMode) document.documentElement.classList.add('dark-mode');
-
-//=== AUTH & CSRF ===
+// Get token from storage (set during login in index.html)
 function getToken() {
   return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
 }
 
+// Fetch CSRF token from server
 async function loadCSRF() {
   try {
     const res = await fetch(`${API}/api/csrf-token`, {
@@ -31,6 +26,7 @@ async function loadCSRF() {
   }
 }
 
+// Get CSRF from cookies (fallback)
 function getCSRF() {
   if (csrfToken) return csrfToken;
   const cookies = document.cookie.split('; ');
@@ -38,6 +34,7 @@ function getCSRF() {
   return csrfCookie ? csrfCookie.split('=')[1] : '';
 }
 
+// Secure fetch with auth headers
 async function secureFetch(url, options = {}) {
   const token = getToken();
   let csrf = csrfToken || getCSRF();
@@ -56,8 +53,7 @@ async function secureFetch(url, options = {}) {
   try {
     const res = await fetch(url, options);
     if (res.status === 401 || res.status === 403) {
-      const data = await res.json().catch(() => ({}));
-      alert(`Unauthorized: ${data.error || 'Please login again'}`);
+      alert('Unauthorized. Redirecting to login...');
       localStorage.removeItem('token');
       sessionStorage.removeItem('token');
       window.location.href = 'index.html';
@@ -70,40 +66,36 @@ async function secureFetch(url, options = {}) {
   }
 }
 
+// HTML escape
 function escapeHTML(str) {
   const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   return String(str).replace(/[&<>"']/g, c => map[c]);
 }
 
-//=== SECTION SWITCHING ===
+
+// ========================
+// SECTION SWITCHING
+// ========================
 function showSection(id) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
   const el = document.getElementById(id);
   if (el) el.classList.add("active");
 }
 
-//=== DARK MODE ===
-function toggleDarkMode() {
-  darkMode = !darkMode;
-  document.documentElement.classList.toggle('dark-mode', darkMode);
-  localStorage.setItem('adminDarkMode', darkMode);
-  alert(darkMode ? '🌙 Dark mode enabled' : '☀️ Light mode enabled');
-}
-
-//=== LOGOUT ===
+// ========== LOGOUT ==========
 async function logout() {
   const token = getToken();
   if (token) {
     await secureFetch(`${API}/api/auth/logout`, { method: 'POST', body: JSON.stringify({}) });
   }
-  localStorage.clear();
-  sessionStorage.clear();
+  localStorage.removeItem('token');
+  sessionStorage.removeItem('token');
   window.location.href = 'index.html';
 }
 
-//===============================================
-// 1. STUDENT MANAGEMENT & QR CODES
-//===============================================
+// ========== 1. STUDENT MANAGEMENT ==========
+let allStudents = [];
+
 async function loadStudents() {
   const res = await secureFetch(`${API}/api/admin/students?perPage=1000`);
   if (!res || !res.ok) { alert('Failed to load students'); return; }
@@ -111,7 +103,26 @@ async function loadStudents() {
   const students = await res.json();
   allStudents = Array.isArray(students) ? students : [];
   
-  // Update users table
+  const table = document.querySelector('#studentsTable tbody') || document.querySelector('#studentsTable');
+  if (table) {
+    table.innerHTML = '';
+    allStudents.forEach(s => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${escapeHTML(s.roll)}</td>
+        <td>${escapeHTML(s.name)}</td>
+        <td>${escapeHTML(s.email || '—')}</td>
+        <td>${escapeHTML(s.dept)}</td>
+        <td>${s.lockedUntil ? '🔒 Locked' : '✅ Active'}</td>
+        <td>
+          <button class="btn-small" onclick="selectStudent('${s.roll}')">Select</button>
+        </td>
+      `;
+      table.appendChild(row);
+    });
+  }
+  
+  // Update users table with actions
   const usersTable = document.querySelector('#usersTable tbody') || document.querySelector('#usersTable');
   if (usersTable) {
     // Clear existing rows except header
@@ -128,9 +139,9 @@ async function loadStudents() {
         <td>${escapeHTML(s.cls || '—')}</td>
         <td>${status}</td>
         <td>
-          <button onclick="viewStudentQR('${s.roll}', '${escapeHTML(s.name)}', '${escapeHTML(s.dept)}')" title="View QR Code" style="padding:5px 8px;font-size:12px;margin:2px;">🔲 QR</button>
-          <button onclick="viewStudentDetail('${s.roll}')" title="View Details" style="padding:5px 8px;font-size:12px;margin:2px;">👁️ View</button>
-          <button onclick="selectStudent('${s.roll}')" title="Select" style="padding:5px 8px;font-size:12px;margin:2px;">✔️ Select</button>
+          <button onclick="viewStudentQR('${s.roll}', '${escapeHTML(s.name)}', '${escapeHTML(s.dept)}')" title="View QR Code" style="padding:5px 8px;font-size:12px;">🔲 QR</button>
+          <button onclick="viewStudentDetail('${s.roll}')" title="View Details & History" style="padding:5px 8px;font-size:12px;">👁️ View</button>
+          <button onclick="selectStudent('${s.roll}')" title="Select" style="padding:5px 8px;font-size:12px;">✔️ Select</button>
         </td>
       `;
       usersTable.appendChild(row);
@@ -139,13 +150,11 @@ async function loadStudents() {
 }
 
 function selectStudent(roll) {
-  // Set roll in all relevant input fields
-  const fields = ['studentLock', 'studentWarning', 'msgRecipients', 'rewardRecipient'];
-  fields.forEach(id => {
+  ['studentLock', 'studentWarning', 'studentMessage'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = roll;
   });
-  alert(`✅ Selected student: ${roll}\nYou can now lock/unlock, issue warnings, or send messages.`);
+  alert(`✅ Selected student: ${roll}`);
 }
 
 function filterUsers() {
@@ -155,20 +164,18 @@ function filterUsers() {
   
   const rows = usersTable.querySelectorAll('tr');
   rows.forEach((row, idx) => {
-    if (idx === 0) return;
+    if (idx === 0) return; // Skip header
     const text = row.textContent.toLowerCase();
     row.style.display = text.includes(searchTerm) ? '' : 'none';
   });
 }
 
-//===============================================
-// 2. LOCK / UNLOCK STUDENTS
-//===============================================
+// ========== 2. LOCK / UNLOCK STUDENTS ==========
 async function lockStudent() {
   const roll = document.getElementById('studentLock')?.value;
   const seconds = parseInt(document.getElementById('lockSeconds')?.value || 86400);
   
-  if (!roll) return alert('❌ Please enter a student roll number');
+  if (!roll) return alert('Select a student');
   
   const res = await secureFetch(`${API}/api/admin/lock`, {
     method: 'POST',
@@ -180,14 +187,13 @@ async function lockStudent() {
     alert('✅ Student locked successfully');
     loadStudents();
   } else {
-    const error = await res?.text();
-    alert('❌ Failed to lock student: ' + error);
+    alert('❌ Failed to lock student');
   }
 }
 
 async function unlockStudent() {
   const roll = document.getElementById('studentLock')?.value;
-  if (!roll) return alert('❌ Please enter a student roll number');
+  if (!roll) return alert('Select a student');
   
   const res = await secureFetch(`${API}/api/admin/unlock`, {
     method: 'POST',
@@ -199,20 +205,17 @@ async function unlockStudent() {
     alert('✅ Student unlocked successfully');
     loadStudents();
   } else {
-    const error = await res?.text();
-    alert('❌ Failed to unlock student: ' + error);
+    alert('❌ Failed to unlock student');
   }
 }
 
-//===============================================
-// 3. WARNINGS
-//===============================================
+// ========== 3. WARNINGS ==========
 async function issueWarning() {
   const roll = document.getElementById('studentWarning')?.value;
   const reason = document.getElementById('warningReason')?.value;
   const level = document.getElementById('warningLevel')?.value || 'low';
   
-  if (!roll || !reason) return alert('❌ Fill all fields');
+  if (!roll || !reason) return alert('Fill all fields');
   
   const res = await secureFetch(`${API}/api/warning`, {
     method: 'POST',
@@ -225,8 +228,7 @@ async function issueWarning() {
     document.getElementById('warningReason').value = '';
     loadWarnings(roll);
   } else {
-    const error = await res?.text();
-    alert('❌ Failed to issue warning: ' + error);
+    alert('❌ Failed to issue warning');
   }
 }
 
@@ -238,50 +240,46 @@ async function loadWarnings(roll = '') {
   if (!res || !res.ok) { alert('Failed to load warnings'); return; }
   
   const warnings = await res.json();
-  const container = document.getElementById('warningsContainer') || document.createElement('div');
+  const container = document.getElementById('warningsContainer');
   container.innerHTML = '';
   
   if (!Array.isArray(warnings) || warnings.length === 0) {
-    container.innerHTML = '<p style="opacity:0.7">No warnings for this student</p>';
+    container.innerHTML = '<p style="opacity:0.7">No warnings</p>';
     return;
   }
   
   warnings.forEach(w => {
-    const div = document.createElement('div');
-    div.style.cssText = 'background:rgba(239,68,68,0.2);padding:10px;margin:5px 0;border-radius:8px;';
-    div.innerHTML = `
-      <strong>⚠️ ${escapeHTML(w.reason || 'Warning')}</strong> - Level: ${escapeHTML(w.level || 'low')}<br>
-      <span style="opacity:0.8;font-size:12px;">${new Date(w.createdAt).toLocaleString()}</span>
-    `;
-    container.appendChild(div);
+    const el = document.createElement('div');
+    el.style.padding = '10px';
+    el.style.background = 'rgba(255,0,0,0.1)';
+    el.style.borderRadius = '8px';
+    el.style.marginBottom = '8px';
+    el.innerHTML = `<strong>[${w.level?.toUpperCase()}]</strong> ${escapeHTML(w.reason)}<br/><small>${new Date(w.createdAt).toLocaleString()}</small>`;
+    container.appendChild(el);
   });
 }
 
-//===============================================
-// 4. NOTICES
-//===============================================
+// ========== 4. NOTICES ==========
 async function createNotice() {
-  const title = document.getElementById('noticeTitle')?.value.trim();
-  const body = document.getElementById('noticeBody')?.value.trim();
-  const urgent = document.getElementById('noticeUrgent')?.checked || false;
+  const title = document.getElementById('noticeTitle')?.value;
+  const body = document.getElementById('noticeBody')?.value;
+  const urgent = document.getElementById('noticeUrgent')?.checked;
   
-  if (!title || !body) return alert('❌ Fill all fields');
+  if (!title || !body) return alert('Fill all fields');
   
   const res = await secureFetch(`${API}/api/admin/notice`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, content: body, urgent })
+    body: JSON.stringify({ title, body, urgent })
   });
   
   if (res && res.ok) {
-    alert('✅ Notice created successfully');
+    alert('✅ Notice created');
     document.getElementById('noticeTitle').value = '';
     document.getElementById('noticeBody').value = '';
-    document.getElementById('noticeUrgent').checked = false;
     loadNotices();
   } else {
-    const error = await res?.text();
-    alert('❌ Failed to create notice: ' + error);
+    alert('❌ Failed to create notice');
   }
 }
 
@@ -291,173 +289,101 @@ async function loadNotices() {
   
   const notices = await res.json();
   const container = document.getElementById('noticesContainer');
-  if (!container) return;
-  
   container.innerHTML = '';
-  if (!Array.isArray(notices) || notices.length === 0) {
-    container.innerHTML = '<p style="opacity:0.7">No notices</p>';
-    return;
-  }
   
-  notices.forEach(n => {
-    const div = document.createElement('div');
-    div.style.cssText = 'background:rgba(59,130,246,0.2);padding:10px;margin:5px 0;border-radius:8px;';
-    div.innerHTML = `
-      <strong>${n.urgent ? '🔴 ' : ''}${escapeHTML(n.title)}</strong><br>
-      <span style="opacity:0.9;">${escapeHTML(n.content)}</span><br>
-      <span style="opacity:0.7;font-size:11px;">${new Date(n.createdAt).toLocaleString()}</span>
-    `;
-    container.appendChild(div);
+  (Array.isArray(notices) ? notices : []).forEach(n => {
+    const el = document.createElement('div');
+    el.style.padding = '10px';
+    el.style.background = n.urgent ? 'rgba(255,100,0,0.15)' : 'rgba(100,200,255,0.15)';
+    el.style.borderRadius = '8px';
+    el.style.marginBottom = '8px';
+    el.innerHTML = `<strong>${escapeHTML(n.title)}</strong> ${n.urgent ? '🔴' : ''}<br/>${escapeHTML(n.body)}<br/><small>${new Date(n.createdAt).toLocaleString()}</small>`;
+    container.appendChild(el);
   });
 }
 
-//===============================================
-// 5. DIRECT MESSAGES & REWARDS
-//===============================================
+// ========== 5. SEND MESSAGES ==========
 async function sendDirectMessage() {
-  const title = document.getElementById('msgTitle')?.value.trim();
-  const content = document.getElementById('msgContent')?.value.trim();
-  const type = document.getElementById('msgType')?.value || 'info';
-  const recipients = document.getElementById('msgRecipients')?.value.trim().split(',').map(r => r.trim()).filter(r => r);
+  const roll = document.getElementById('studentMessage')?.value;
+  const title = document.getElementById('messageTitle')?.value;
+  const body = document.getElementById('messageBody')?.value;
+  const type = document.getElementById('messageType')?.value || 'message';
   
-  if (!title || !content || recipients.length === 0) {
-    return alert('❌ Fill all fields (title, content, recipients)');
-  }
+  if (!roll || !title || !body) return alert('Fill all fields');
   
   const res = await secureFetch(`${API}/api/admin/send-message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body: content, type, recipients })
+    body: JSON.stringify({ roll, title, body, type })
   });
   
   if (res && res.ok) {
-    const data = await res.json();
-    alert(`✅ Message sent successfully to ${recipients.length} student(s)!`);
-    document.getElementById('msgTitle').value = '';
-    document.getElementById('msgContent').value = '';
-    document.getElementById('msgRecipients').value = '';
+    alert('✅ Message sent');
+    document.getElementById('messageTitle').value = '';
+    document.getElementById('messageBody').value = '';
   } else {
-    const error = await res?.text();
-    alert('❌ Failed to send message: ' + error);
-  }
-}
-
-async function sendReward() {
-  const recipient = document.getElementById('rewardRecipient')?.value.trim();
-  const title = document.getElementById('rewardTitle')?.value.trim();
-  const content = document.getElementById('rewardContent')?.value.trim();
-  const points = parseInt(document.getElementById('rewardPoints')?.value || 0);
-  
-  if (!recipient || !title || !content) {
-    return alert('❌ Fill all fields');
-  }
-  
-  const res = await secureFetch(`${API}/api/admin/send-message`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: `🎁 ${title}`,
-      body: `${content}\n\n🏆 Reward Points: ${points}`,
-      type: 'reward',
-      recipients: [recipient]
-    })
-  });
-  
-  if (res && res.ok) {
-    alert('✅ Reward sent successfully!');
-    document.getElementById('rewardRecipient').value = '';
-    document.getElementById('rewardTitle').value = '';
-    document.getElementById('rewardContent').value = '';
-    document.getElementById('rewardPoints').value = '';
-  } else {
-    const error = await res?.text();
-    alert('❌ Failed to send reward: ' + error);
+    alert('❌ Failed to send message');
   }
 }
 
 async function broadcastMessage() {
-  const title = document.getElementById('broadcastTitle')?.value.trim();
-  const content = document.getElementById('broadcastContent')?.value.trim();
-  const filter = document.getElementById('broadcastFilter')?.value || 'all';
+  const title = document.getElementById('broadcastTitle')?.value;
+  const body = document.getElementById('broadcastBody')?.value;
+  const type = document.getElementById('broadcastType')?.value || 'notice';
   
-  if (!title || !content) return alert('❌ Fill all fields');
-  
-  let filterObj = {};
-  if (filter === 'dept') {
-    const dept = prompt('Enter department (e.g., CSE, ECE):');
-    if (!dept) return;
-    filterObj.dept = dept;
-  } else if (filter === 'locked') {
-    filterObj.locked = true;
-  }
+  if (!title || !body) return alert('Fill all fields');
   
   const res = await secureFetch(`${API}/api/admin/broadcast-message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body: content, filter: Object.keys(filterObj).length > 0 ? filterObj : null })
+    body: JSON.stringify({ title, body, type })
   });
   
   if (res && res.ok) {
-    const data = await res.json();
-    alert(`✅ Broadcast sent to ${data.sentTo || 'all'} student(s)!`);
+    alert('✅ Message broadcast to all students');
     document.getElementById('broadcastTitle').value = '';
-    document.getElementById('broadcastContent').value = '';
+    document.getElementById('broadcastBody').value = '';
   } else {
-    const error = await res?.text();
-    alert('❌ Failed to send broadcast: ' + error);
+    alert('❌ Failed to broadcast');
   }
 }
 
-//===============================================
-// 6. MESSAGE TEMPLATES
-//===============================================
+// ========== 6. MESSAGE TEMPLATES ==========
 async function loadTemplates() {
   const res = await secureFetch(`${API}/api/admin/message-templates`);
   if (!res || !res.ok) return;
   
-  const data = await res.json();
-  const select = document.getElementById('templateSelect');
-  const list = document.getElementById('templateList');
+  const templates = await res.json();
+  const container = document.getElementById('templatesContainer');
+  container.innerHTML = '';
   
-  if (select) {
-    select.innerHTML = '<option value="">-- Select Template --</option>';
-    if (data.templates && Array.isArray(data.templates)) {
-      data.templates.forEach(t => {
-        select.innerHTML += `<option value="${t._id}">${escapeHTML(t.name)} (${t.type})</option>`;
-      });
-    }
-  }
-  
-  if (list) {
-    list.innerHTML = '';
-    if (data.templates && Array.isArray(data.templates)) {
-      data.templates.forEach(t => {
-        list.innerHTML += `<div style="padding:8px;background:rgba(255,255,255,0.05);margin:5px;border-radius:6px;font-size:12px;">
-          <strong>${escapeHTML(t.name)}</strong> - ${escapeHTML(t.title || '')}
-        </div>`;
-      });
-    }
-  }
+  (Array.isArray(templates) ? templates : []).forEach(t => {
+    const el = document.createElement('div');
+    el.style.padding = '10px';
+    el.style.background = 'rgba(100,255,100,0.15)';
+    el.style.borderRadius = '8px';
+    el.style.marginBottom = '8px';
+    el.innerHTML = `<strong>${escapeHTML(t.name)}</strong><br/>${escapeHTML(t.body.substring(0, 50))}<br/><button class="btn-small" onclick="useTemplate('${t._id}')">Use</button>`;
+    container.appendChild(el);
+  });
 }
 
 async function createTemplate() {
-  const name = prompt('Template name:');
-  if (!name) return;
+  const name = document.getElementById('templateName')?.value;
+  const body = document.getElementById('templateBody')?.value;
   
-  const title = document.getElementById('templateTitle')?.value.trim();
-  const body = document.getElementById('templateBody')?.value.trim();
-  const type = document.getElementById('templateType')?.value || 'info';
-  
-  if (!title || !body) return alert('Fill template fields first');
+  if (!name || !body) return alert('Fill all fields');
   
   const res = await secureFetch(`${API}/api/admin/message-templates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, title, content: body, type, category: 'custom' })
+    body: JSON.stringify({ name, body })
   });
   
   if (res && res.ok) {
     alert('✅ Template created');
+    document.getElementById('templateName').value = '';
+    document.getElementById('templateBody').value = '';
     loadTemplates();
   } else {
     alert('❌ Failed to create template');
@@ -465,18 +391,16 @@ async function createTemplate() {
 }
 
 function useTemplate(templateId) {
-  // This would load the template into the message form
-  alert('Template loaded');
+  document.getElementById('messageTitle').value = 'From Template';
+  alert('Template loaded. Edit and send.');
 }
 
-//===============================================
-// 7. COURSE PLANS
-//===============================================
+// ========== 7. COURSE PLANS ==========
 async function uploadCoursePlan() {
   const fileInput = document.getElementById('planFile');
   const nameInput = document.getElementById('planName');
   
-  if (!fileInput || !fileInput.files.length) return alert('❌ Select a PDF file');
+  if (!fileInput || !fileInput.files.length) return alert('Select a PDF file');
   
   const file = fileInput.files[0];
   const formData = new FormData();
@@ -487,7 +411,7 @@ async function uploadCoursePlan() {
   const csrf = csrfToken || getCSRF();
   
   if (!csrf) {
-    alert('❌ CSRF token missing. Refreshing...');
+    alert('❌ CSRF token missing. Refreshing page...');
     await loadCSRF();
     return;
   }
@@ -506,11 +430,10 @@ async function uploadCoursePlan() {
     if (res && res.ok) {
       alert('✅ Course plan uploaded successfully');
       fileInput.value = '';
-      if (nameInput) nameInput.value = '';
+      nameInput.value = '';
       loadCoursePlans();
     } else {
-      const error = await res.text();
-      alert('❌ Upload failed: ' + error);
+      alert('❌ Upload failed: ' + (await res.text()));
     }
   } catch (err) {
     console.error('Upload error:', err);
@@ -524,25 +447,16 @@ async function loadCoursePlans() {
   
   const plans = await res.json();
   const table = document.querySelector('#plansTable tbody') || document.querySelector('#plansTable');
-  if (!table) return;
+  table.innerHTML = '';
   
-  // Clear existing rows except header
-  const rows = table.querySelectorAll('tr');
-  rows.forEach((r, idx) => { if (idx > 0) r.remove(); });
-  
-  if (!Array.isArray(plans) || plans.length === 0) {
-    const row = document.createElement('tr');
-    row.innerHTML = '<td colspan="3" style="text-align:center;opacity:0.7;">No course plans uploaded</td>';
-    table.appendChild(row);
-    return;
-  }
-  
-  plans.forEach(p => {
+  (Array.isArray(plans) ? plans : []).forEach(p => {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${escapeHTML(p.name)}</td>
-      <td>${new Date(p.uploadedAt || p.createdAt).toLocaleDateString()}</td>
-      <td><button onclick="deleteCoursePlan('${p._id}')" style="background:#ef4444;">Delete</button></td>
+      <td>${new Date(p.uploadedAt).toLocaleString()}</td>
+      <td>
+        <button class="btn-small" onclick="deleteCoursePlan('${p._id}')">Delete</button>
+      </td>
     `;
     table.appendChild(row);
   });
@@ -559,48 +473,50 @@ async function deleteCoursePlan(planId) {
     alert('✅ Course plan deleted');
     loadCoursePlans();
   } else {
-    alert('❌ Failed to delete');
+    alert('❌ Failed to delete course plan');
   }
 }
 
-//===============================================
-// 8. APPEALS
-//===============================================
+// ========== 8. APPEALS ==========
 async function loadAppeals() {
   const res = await secureFetch(`${API}/api/admin/appeals`);
   if (!res || !res.ok) return;
   
   const appeals = await res.json();
   const container = document.getElementById('appealsContainer');
-  if (!container) return;
-  
   container.innerHTML = '';
-  if (!Array.isArray(appeals) || appeals.length === 0) {
-    container.innerHTML = '<p style="opacity:0.7;">No appeals</p>';
-    return;
-  }
   
-  appeals.forEach(a => {
-    const div = document.createElement('div');
-    div.style.cssText = 'background:rgba(255,255,255,0.08);padding:12px;margin:8px 0;border-radius:10px;';
-    div.innerHTML = `
-      <strong>${escapeHTML(a.studentRoll)} - ${escapeHTML(a.reason || 'Appeal')}</strong><br>
-      <p style="margin:8px 0;">${escapeHTML(a.description || '')}</p>
-      <small style="opacity:0.8;">${new Date(a.createdAt).toLocaleString()}</small><br>
-      <button onclick="respondToAppeal('${a._id}')" style="margin-top:8px;">Respond</button>
+  (Array.isArray(appeals) ? appeals : []).forEach(a => {
+    const el = document.createElement('div');
+    el.style.padding = '10px';
+    el.style.background = 'rgba(255,200,0,0.15)';
+    el.style.borderRadius = '8px';
+    el.style.marginBottom = '8px';
+    el.innerHTML = `
+      <strong>${escapeHTML(a.studentRoll)}</strong> - ${escapeHTML(a.reason)}<br/>
+      Status: <strong>${a.status}</strong><br/>
+      <input type="text" placeholder="Response..." id="appealResp_${a._id}" style="margin:5px 0"/>
+      <select id="appealAction_${a._id}" style="margin:5px 0">
+        <option value="review">Review</option>
+        <option value="close">Close</option>
+        <option value="unlock">Unlock & Close</option>
+      </select>
+      <button class="btn-small" onclick="respondToAppeal('${a._id}')">Respond</button>
     `;
-    container.appendChild(div);
+    container.appendChild(el);
   });
 }
 
 async function respondToAppeal(appealId) {
-  const response = prompt('Enter your response:');
-  if (!response) return;
+  const response = document.getElementById(`appealResp_${appealId}`)?.value;
+  const action = document.getElementById(`appealAction_${appealId}`)?.value;
   
-  const res = await secureFetch(`${API}/api/admin/appeal/${appealId}/respond`, {
+  if (!response) return alert('Enter a response');
+  
+  const res = await secureFetch(`${API}/api/admin/appeals/${appealId}/respond`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ response, status: 'resolved' })
+    body: JSON.stringify({ action, response })
   });
   
   if (res && res.ok) {
@@ -611,9 +527,7 @@ async function respondToAppeal(appealId) {
   }
 }
 
-//===============================================
-// 9. DASHBOARD STATS
-//===============================================
+// ========== 9. DASHBOARD STATS ==========
 async function loadDashboardStats() {
   const res = await secureFetch(`${API}/api/admin/students?perPage=1000`);
   if (!res || !res.ok) return;
@@ -623,30 +537,79 @@ async function loadDashboardStats() {
   const locked = Array.isArray(students) ? students.filter(s => s.lockedUntil && new Date(s.lockedUntil) > new Date()).length : 0;
   const withWarnings = Array.isArray(students) ? students.filter(s => s.warningsCount > 0).length : 0;
   
-  const totalEl = document.getElementById('totalStudents');
-  const lockedEl = document.getElementById('lockedStudents') || document.getElementById('lockedCount');
-  const warnedEl = document.getElementById('warningStudents') || document.getElementById('warnedCount');
-  
-  if (totalEl) totalEl.textContent = total;
-  if (lockedEl) lockedEl.textContent = locked;
-  if (warnedEl) warnedEl.textContent = withWarnings;
+  document.getElementById('totalStudents').textContent = total;
+  document.getElementById('lockedStudents').textContent = locked;
+  document.getElementById('warningStudents').textContent = withWarnings;
 }
 
-//===============================================
-// 10. QR CODE & STUDENT DETAILS
-//===============================================
+// ========== 10. INIT & LOAD ALL ==========
+async function initAdmin() {
+  const token = getToken();
+  if (!token) {
+    window.location.href = 'index.html';
+    return;
+  }
+  
+  // IMPORTANT: Load CSRF token first!
+  await loadCSRF();
+  console.log("✅ CSRF Token loaded:", csrfToken ? "Yes" : "No");
+  
+  // Load all data
+  await loadDashboardStats();
+  await loadStudents();
+  await loadNotices();
+  await loadCoursePlans();
+  await loadTemplates();
+  await loadAppeals();
+  
+  showSection('dashboard');
+}
+
+// ========== EVENT LISTENERS ==========
+document.addEventListener('DOMContentLoaded', () => {
+  initAdmin();
+  
+  // Sidebar menu
+  document.querySelectorAll('.menu a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      const sectionId = link.getAttribute('data-section');
+      if (sectionId) {
+        e.preventDefault();
+        showSection(sectionId);
+      }
+    });
+  });
+  
+  // Logout button
+  const logoutBtn = document.querySelector('[onclick="logout()"]');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+  
+  // Action buttons
+  document.getElementById('lockBtn')?.addEventListener('click', lockStudent);
+  document.getElementById('unlockBtn')?.addEventListener('click', unlockStudent);
+  document.getElementById('warningBtn')?.addEventListener('click', issueWarning);
+  document.getElementById('noticeBtn')?.addEventListener('click', createNotice);
+  document.getElementById('messageBtn')?.addEventListener('click', sendDirectMessage);
+  document.getElementById('broadcastBtn')?.addEventListener('click', broadcastMessage);
+  document.getElementById('templateBtn')?.addEventListener('click', createTemplate);
+  document.getElementById('planBtn')?.addEventListener('click', uploadCoursePlan);
+  document.getElementById('refreshBtn')?.addEventListener('click', initAdmin);
+});
+
+// ========== QR CODE VIEWING ==========
 function viewStudentQR(roll, name, dept) {
   const modal = document.getElementById('qrModal');
   const container = document.getElementById('qrCodeContainer');
   const info = document.getElementById('qrStudentInfo');
   
-  if (!modal || !container || !info) {
-    alert('QR Modal not found in HTML. Add the QR modal to admin.html');
-    return;
-  }
+  if (!modal || !container || !info) return;
   
+  // Clear previous QR code
   container.innerHTML = '';
   
+  // Generate QR code with student info
   const qrData = JSON.stringify({
     roll: roll,
     name: name,
@@ -665,7 +628,7 @@ function viewStudentQR(roll, name, dept) {
       correctLevel: QRCode.CorrectLevel.H
     });
   } catch (e) {
-    container.innerHTML = '<p style="color:red;">QR Code library not loaded. Check if qrcode.min.js is included.</p>';
+    container.innerHTML = '<p style="color:red;">QR Code library not loaded</p>';
   }
   
   info.textContent = `${name} (${roll}) - ${dept}`;
@@ -677,12 +640,10 @@ function closeQRModal() {
   if (modal) modal.style.display = 'none';
 }
 
+// ========== STUDENT DETAIL VIEWING ==========
 async function viewStudentDetail(roll) {
   const modal = document.getElementById('studentDetailModal');
-  if (!modal) {
-    alert('Student Detail Modal not found in HTML');
-    return;
-  }
+  if (!modal) return;
   
   modal.style.display = 'flex';
   
@@ -774,46 +735,3 @@ function closeStudentDetailModal() {
   const modal = document.getElementById('studentDetailModal');
   if (modal) modal.style.display = 'none';
 }
-
-//===============================================
-// 11. INITIALIZATION
-//===============================================
-async function initAdmin() {
-  const token = getToken();
-  if (!token) {
-    window.location.href = 'index.html';
-    return;
-  }
-  
-  // Load CSRF token first
-  await loadCSRF();
-  console.log("✅ CSRF Token loaded:", csrfToken ? "Yes" : "No");
-  
-  // Load all data
-  await loadDashboardStats();
-  await loadStudents();
-  await loadNotices();
-  await loadCoursePlans();
-  await loadTemplates();
-  await loadAppeals();
-  
-  showSection('dashboard');
-}
-
-//===============================================
-// EVENT LISTENERS
-//===============================================
-document.addEventListener('DOMContentLoaded', () => {
-  initAdmin();
-  
-  // Sidebar menu
-  document.querySelectorAll('.menu a').forEach(link => {
-    link.addEventListener('click', (e) => {
-      const sectionId = link.getAttribute('data-section');
-      if (sectionId) {
-        e.preventDefault();
-        showSection(sectionId);
-      }
-    });
-  });
-});

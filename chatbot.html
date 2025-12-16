@@ -255,6 +255,16 @@ async function sendMessage(){
   const input=document.getElementById("chatInput");
   const message=input.value.trim();
   if(!message) return;
+  
+  // Ensure CSRF token is loaded
+  if (!csrfToken) {
+    await loadCSRF();
+    if (!csrfToken) {
+      alert("⚠️ Security token not loaded. Please refresh the page.");
+      return;
+    }
+  }
+  
   addMessage("user",message);
   input.value="";
   showTyping(true);
@@ -263,34 +273,63 @@ async function sendMessage(){
     // Load course plans for context
     let coursePlanContext = '';
     try {
-      const plansRes = await fetch(`${API_URL}/api/course-plan`, { headers: { "Authorization": "Bearer "+TOKEN } });
+      const plansRes = await fetch(`${API_URL}/api/course-plan`, { 
+        headers: { 
+          "Authorization": "Bearer "+TOKEN,
+          "x-csrf-token": csrfToken 
+        },
+        credentials: "include"
+      });
       if (plansRes.ok) {
         const plans = await plansRes.json();
         if (Array.isArray(plans) && plans.length > 0) {
           const planNames = plans.map(p => p.name).join(', ');
-          coursePlanContext = `Available course plans: ${planNames}. `;
+          coursePlanContext = `[Context: Available course plans - ${planNames}] User question: `;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Could not load course plans:", e);
+    }
     
     const enhancedMessage = coursePlanContext + message;
     
     const res = await fetch(`${API_URL}/api/chat`,{
       method:"POST",
-      headers:{ "Content-Type":"application/json","Authorization":"Bearer "+TOKEN, "x-csrf-token": csrfToken },
-      body:JSON.stringify({ roll:studentProfile.roll, sender:"user", message: enhancedMessage, useGemini:true })
+      headers:{ 
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+TOKEN, 
+        "x-csrf-token": csrfToken 
+      },
+      credentials: "include",
+      body:JSON.stringify({ 
+        roll: studentProfile.roll, 
+        sender: "user", 
+        message: enhancedMessage, 
+        useGemini: true 
+      })
     });
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+      addMessage("bot", `⚠️ Message failed: ${errorData.error || res.statusText}. Please try again.`, botAvatar);
+      showTyping(false);
+      return;
+    }
+    
     const data = await res.json();
     // If HTTP returned assistant reply, render immediately (fallback if sockets delayed)
     if (data && data.assistantReply) {
       addMessage("bot", data.assistantReply, botAvatar);
       showTyping(false);
-    } else if (!res.ok) {
-      addMessage("bot","⚠️ Message failed. Please retry.",botAvatar);
-      showTyping(false);
+    } else {
+      // Wait for socket response or timeout
+      setTimeout(() => {
+        showTyping(false);
+      }, 5000);
     }
   }catch(err){
-    addMessage("bot","⚠️ Error sending message",botAvatar);
+    console.error("Send message error:", err);
+    addMessage("bot","⚠️ Error sending message: " + err.message, botAvatar);
     showTyping(false);
   }
 }
@@ -314,12 +353,15 @@ async function checkLockStatus(){
 }
 
 // INIT
-window.onload=()=>{
+window.onload=async ()=>{
   displayStudentInfo();
   renderHistory();
+  
+  // Load CSRF FIRST before any operations
+  await loadCSRF();
+  console.log("✅ CSRF Token loaded:", csrfToken ? "Yes" : "No");
+  
   checkLockStatus();
-  // Load CSRF for protected POSTs
-  loadCSRF();
   bindQuickPrompts();
   updateTrends();
 };
