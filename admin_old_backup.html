@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nandha Chatbot Management System — Admin Panel</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+    body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0f172a, #1e293b, #0f172a);
+        color: white;
+        height: 100vh;
+        display: flex;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        width: 260px;
+        background: rgba(255,255,255,0.07);
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        height: 100vh;
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sidebar h2 {
+        font-size: 20px;
+        text-align: center;
+        margin-bottom: 30px;
+        letter-spacing: 1px;
+    }
+
+    .menu a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 15px;
+        margin-bottom: 10px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px;
+        text-decoration: none;
+        color: #cbd5e1;
+        transition: 0.3s;
+        cursor: pointer;
+    }
+
+    .menu a:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateX(5px);
+    }
+
+    /* Main content */
+    .content {
+        flex: 1;
+        padding: 30px;
+        overflow-y: auto;
+    }
+
+    .section {
+        display: none;
+        animation: fadeIn 0.4s ease-in;
+    }
+
+    .section.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+        background: rgba(255,255,255,0.08);
+        padding: 20px;
+        border-radius: 15px;
+        backdrop-filter: blur(12px);
+        margin-bottom: 25px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    input, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        margin: 8px 0;
+        background: rgba(255,255,255,0.15);
+        color: white;
+        outline: none;
+    }
+
+    button {
+        padding: 12px 18px;
+        background: #3b82f6;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        color: white;
+        transition: 0.3s;
+    }
+
+    button:hover {
+        background: #60a5fa;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    th, td {
+        padding: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+        text-align: left;
+    }
+
+    th {
+        color: #93c5fd;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- ================= SIDEBAR ================= -->
+<div class="sidebar">
+    <h2>ADMIN PANEL</h2>
+
+    <div class="menu">
+        <a onclick="showSection('dashboard')"><i class="fa fa-home"></i> Dashboard</a>
+        <a onclick="showSection('analytics')"><i class="fa fa-chart-pie"></i> Analytics</a>
+        <a onclick="showSection('users')"><i class="fa fa-users"></i> User Management</a>
+        <a onclick="showSection('search')"><i class="fa fa-search"></i> Search & Filter</a>
+        <a onclick="showSection('course')"><i class="fa fa-book"></i> Course Plans</a>
+        <a onclick="showSection('notices')"><i class="fa fa-bell"></i> Notices & Alerts</a>
+        <a onclick="showSection('messaging')"><i class="fa fa-envelope"></i> System Messages</a>
+        <a onclick="showSection('chat')"><i class="fa fa-comments"></i> Chat Control</a>
+        <a onclick="showSection('audit')"><i class="fa fa-history"></i> Audit Logs</a>
+        <a onclick="toggleDarkMode()"><i class="fa fa-moon"></i> Dark Mode</a>
+        <a onclick="logout()"><i class="fa fa-right-from-bracket"></i> Logout</a>
+    </div>
+</div>
+
+<!-- ================= MAIN CONTENT ================= -->
+<div class="content">
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="section active">
+        <h2>Welcome, Admin 👋</h2>
+        <p>Manage students, analytics, notices, and more from here.</p>
+    </div>
+
+    <!-- Analytics Section -->
+    <div id="analytics" class="section">
+        <h2>📊 Analytics Dashboard</h2>
+        <div class="card">
+            <h3>System Statistics</h3>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;">
+                <div style="background:rgba(59,130,246,0.2);padding:20px;border-radius:10px;text-align:center;">
+                    <div style="font-size:28px;font-weight:bold" id="totalStudents">—</div>
+                    <div style="font-size:13px;opacity:0.8">Total Students</div>
+                </div>
+                <div style="background:rgba(34,197,94,0.2);padding:20px;border-radius:10px;text-align:center;">
+                    <div style="font-size:28px;font-weight:bold" id="activeToday">—</div>
+                    <div style="font-size:13px;opacity:0.8">Active Today</div>
+                </div>
+                <div style="background:rgba(239,68,68,0.2);padding:20px;border-radius:10px;text-align:center;">
+                    <div style="font-size:28px;font-weight:bold" id="lockedCount">—</div>
+                    <div style="font-size:13px;opacity:0.8">Locked Accounts</div>
+                </div>
+                <div style="background:rgba(249,115,22,0.2);padding:20px;border-radius:10px;text-align:center;">
+                    <div style="font-size:28px;font-weight:bold" id="warnedCount">—</div>
+                    <div style="font-size:13px;opacity:0.8">With Warnings</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Section -->
+    <div id="search" class="section">
+        <h2>🔍 Search & Filter Students</h2>
+        <div class="card">
+            <h3>Advanced Filters</h3>
+            <input type="text" id="searchName" placeholder="Search by Name or Roll">
+            <select id="filterDept"><option value="">All Departments</option><option>CSE</option><option>ECE</option><option>MECH</option></select>
+            <select id="filterClass"><option value="">All Classes</option><option>I Year</option><option>II Year</option><option>III Year</option></select>
+            <select id="filterStatus"><option value="">All Statuses</option><option>Active</option><option>Locked</option><option>Warned</option></select>
+            <button onclick="applyFilters()">Apply Filters</button>
+            <button onclick="exportStudentData()">📥 Export as CSV</button>
+        </div>
+        <div id="searchResults" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- Notices Section -->
+    <div id="notices" class="section">
+        <h2>📢 Notices & Announcements</h2>
+        <div class="card">
+            <h3>Create New Notice</h3>
+            <input type="text" id="noticeTitle" placeholder="Notice Title">
+            <textarea id="noticeBody" placeholder="Notice Body" style="width:100%;padding:10px;border-radius:8px;border:none;margin:8px 0;min-height:100px;"></textarea>
+            <label><input type="checkbox" id="noticeUrgent"> Urgent/Pin to top</label>
+            <button onclick="createNotice()" style="margin-top:10px;">Send Notice</button>
+        </div>
+    </div>
+
+    <!-- Automated System Messages Section -->
+    <div id="messaging" class="section">
+        <h2>💬 Automated System Messages</h2>
+        <div class="card">
+            <h3>Send Direct Message</h3>
+            <input type="text" id="msgTitle" placeholder="Message Title">
+            <textarea id="msgContent" placeholder="Message Content" style="width:100%;padding:10px;border-radius:8px;border:none;margin:8px 0;min-height:100px;"></textarea>
+            <select id="msgType"><option value="info">ℹ️ Info</option><option value="warning">⚠️ Warning</option><option value="alert">🚨 Alert</option></select>
+            <input type="text" id="msgRecipients" placeholder="Enter roll numbers (comma separated)">
+            <label><input type="checkbox" id="msgSchedule"> Schedule for later?</label>
+            <input type="datetime-local" id="msgScheduleTime" style="display:none;" placeholder="Date & Time">
+            <button onclick="sendDirectMessage()">Send Message</button>
+        </div>
+        
+        <div class="card">
+            <h3>Broadcast Message</h3>
+            <select id="broadcastFilter"><option value="all">📢 Send to All Students</option><option value="dept">By Department</option><option value="locked">Only Locked Accounts</option></select>
+            <input type="text" id="broadcastTitle" placeholder="Message Title">
+            <textarea id="broadcastContent" placeholder="Message Content" style="width:100%;padding:10px;border-radius:8px;border:none;margin:8px 0;min-height:100px;"></textarea>
+            <button onclick="sendBroadcast()">Send Broadcast</button>
+        </div>
+
+        <div class="card">
+            <h3>Message Templates</h3>
+            <select id="templateSelect"><option>Load a Template</option></select>
+            <button onclick="loadTemplate()">Load</button>
+            <button onclick="saveAsTemplate()">Save Current as Template</button>
+            <hr>
+            <div id="templateList" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- Audit Logs Section -->
+    <div id="audit" class="section">
+        <h2>📋 Audit Logs</h2>
+        <div class="card">
+            <h3>Admin Activity History</h3>
+            <div style="max-height:400px;overflow-y:auto;border-radius:8px;background:rgba(0,0,0,0.2);padding:10px;">
+                <div id="auditLogs" style="font-size:13px;">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Plan Section -->
+    <div id="course" class="section">
+        <h2>📘 Course Plan Management</h2>
+
+        <div class="card">
+            <h3>Upload Course Plan (PDF)</h3>
+            <input type="text" id="planName" placeholder="Optional: Plan name (auto-detect from file)">
+            <input type="file" id="planFile" accept="application/pdf">
+            <button id="planBtn" onclick="uploadCoursePlan()">Upload PDF</button>
+        </div>
+
+        <div class="card">
+            <h3>Uploaded Course Plans</h3>
+            <table id="plansTable">
+                <tr><th>File</th><th>Uploaded</th><th>Action</th></tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Chat Control -->
+    <div id="chat" class="section">
+        <h2>💬 Chat Control & Locking</h2>
+
+        <div class="card">
+            <h3>Global Chat Control</h3>
+            <button id="lockAllBtn" style="background:#ef4444;">Lock All</button>
+            <button id="unlockAllBtn" style="background:#22c55e;">Unlock All</button>
+        </div>
+
+        <div class="card">
+            <h3>Specific Lock</h3>
+            <select id="deptLock"><option>Select Department</option></select>
+            <select id="classLock"><option>Select Class</option></select>
+            <select id="studentLock"><option>Select Student (optional)</option></select>
+            <button id="applySpecificLockBtn">Apply Lock</button>
+        </div>
+
+        <div class="card">
+            <h3>Auto-Lock Settings</h3>
+            <select id="autoLockSelect">
+                <option value="3">After 3 violations</option>
+                <option value="5">After 5 violations</option>
+                <option value="0">Disable Auto-Lock</option>
+            </select>
+            <button id="saveAutoLockBtn">Save</button>
+        </div>
+
+        <div class="card">
+            <h3>Warnings / Violations</h3>
+            <table id="warningsTable">
+                <tr><th>Student</th><th>Violation</th><th>Date</th></tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- User Management -->
+    <div id="users" class="section">
+        <h2>👥 User Management</h2>
+
+        <div class="card">
+            <h3>All Students</h3>
+            <input type="text" id="userSearchInput" placeholder="Search by name or roll..." onkeyup="filterUsers()">
+            <table id="usersTable">
+                <tr><th>Roll</th><th>Name</th><th>Dept</th><th>Class</th><th>Status</th><th>Actions</th></tr>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- QR Code Modal -->
+<div id="qrModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#1e293b;padding:30px;border-radius:15px;text-align:center;max-width:400px;">
+        <h3>Student QR Code</h3>
+        <div id="qrCodeContainer" style="margin:20px 0;background:white;padding:20px;border-radius:10px;display:inline-block;"></div>
+        <p id="qrStudentInfo" style="font-size:14px;margin:10px 0;"></p>
+        <button onclick="closeQRModal()" style="margin-top:15px;">Close</button>
+    </div>
+</div>
+
+<!-- Student Detail Modal -->
+<div id="studentDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;">
+    <div style="background:#1e293b;padding:30px;border-radius:15px;max-width:800px;width:90%;margin:20px;max-height:90vh;overflow-y:auto;">
+        <h3 id="detailStudentName">Student Details</h3>
+        <div id="detailStudentInfo" style="margin:20px 0;"></div>
+        
+        <div style="margin:20px 0;">
+            <h4>💬 Chat History (Last 50 messages)</h4>
+            <div id="detailChatHistory" style="max-height:300px;overflow-y:auto;background:rgba(0,0,0,0.3);padding:15px;border-radius:10px;">
+                <p style="opacity:0.6;">Loading chat history...</p>
+            </div>
+        </div>
+        
+        <div style="margin:20px 0;">
+            <h4>⚠️ Warnings</h4>
+            <div id="detailWarnings"></div>
+        </div>
+        
+        <button onclick="closeStudentDetailModal()" style="margin-top:15px;">Close</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="admin.js"></script>
+
+</body>
+</html>
