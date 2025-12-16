@@ -248,13 +248,32 @@ async function loadWarnings(roll = '') {
   
   warnings.forEach(w => {
     const div = document.createElement('div');
-    div.style.cssText = 'background:rgba(239,68,68,0.2);padding:10px;margin:5px 0;border-radius:8px;';
-    div.innerHTML = `
+    div.style.cssText = 'background:rgba(239,68,68,0.2);padding:10px;margin:5px 0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;';
+    const info = document.createElement('div');
+    info.innerHTML = `
       <strong>⚠️ ${escapeHTML(w.reason || 'Warning')}</strong> - Level: ${escapeHTML(w.level || 'low')}<br>
       <span style="opacity:0.8;font-size:12px;">${new Date(w.createdAt).toLocaleString()}</span>
     `;
+    const btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.style.background = '#ef4444';
+    btn.onclick = () => deleteWarning(w._id, roll);
+    div.appendChild(info);
+    div.appendChild(btn);
     container.appendChild(div);
   });
+}
+
+async function deleteWarning(warningId, roll) {
+  if (!confirm('Remove this violation?')) return;
+  const res = await secureFetch(`${API}/api/warning/${warningId}`, { method: 'DELETE' });
+  if (res && res.ok) {
+    alert('✅ Violation removed');
+    await loadWarnings(roll);
+    await loadStudents();
+  } else {
+    alert('❌ Failed to remove violation');
+  }
 }
 
 //===============================================
@@ -372,6 +391,23 @@ async function sendReward() {
   } else {
     const error = await res?.text();
     alert('❌ Failed to send reward: ' + error);
+  }
+}
+
+// Grant a cosmetic reward (avatar border, name style, chat color, background, badge)
+async function grantCosmetic(type, value, applyNow = true) {
+  const recipient = document.getElementById('rewardRecipient')?.value.trim();
+  if (!recipient) return alert('Enter a recipient roll in the Rewards section');
+  const res = await secureFetch(`${API}/api/admin/reward/cosmetic`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll: recipient, type, value, applyNow })
+  });
+  if (res && res.ok) {
+    alert(`✅ Granted ${type}: ${value} to ${recipient}`);
+  } else {
+    const t = await res?.text();
+    alert('❌ Failed to grant cosmetic: ' + t);
   }
 }
 
@@ -753,9 +789,12 @@ async function viewStudentDetail(roll) {
       const warnings = await warnRes.json();
       if (Array.isArray(warnings) && warnings.length > 0) {
         warningsEl.innerHTML = warnings.map(w => `
-          <div style="background:rgba(239,68,68,0.2);padding:10px;margin:5px 0;border-radius:8px;font-size:13px;">
-            <strong>⚠️ ${escapeHTML(w.reason || 'Warning')}</strong><br>
-            <span style="opacity:0.8;font-size:11px;">${new Date(w.createdAt).toLocaleString()}</span>
+          <div style="background:rgba(239,68,68,0.2);padding:10px;margin:5px 0;border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div>
+              <strong>⚠️ ${escapeHTML(w.reason || 'Warning')}</strong><br>
+              <span style="opacity:0.8;font-size:11px;">${new Date(w.createdAt).toLocaleString()}</span>
+            </div>
+            <button style="background:#ef4444;" onclick="deleteWarning('${w._id}','${roll}')">Remove</button>
           </div>
         `).join('');
       } else {
@@ -798,6 +837,22 @@ async function initAdmin() {
   await loadAppeals();
   
   showSection('dashboard');
+}
+
+// Export students CSV for reporting
+function exportStudentData() {
+  if (!Array.isArray(allStudents) || allStudents.length === 0) {
+    alert('No students loaded');
+    return;
+  }
+  const headers = ['roll','name','dept','cls','email','lockedUntil','warningsCount'];
+  const rows = allStudents.map(s => headers.map(h => (s[h] ?? '').toString().replace(/"/g,'"')).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'students.csv';
+  a.click();
 }
 
 //===============================================

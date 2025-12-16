@@ -140,6 +140,20 @@ const studentSchema = new Schema(
       notifications: { type: Boolean, default: true },
       safeMode: { type: Boolean, default: true },
       fontSize: { type: String, enum: ["small", "medium", "large"], default: "medium" },
+      cosmetics: {
+        avatarBorder: { type: String, default: "" },
+        nameStyle: { type: String, default: "" },
+        chatBubbleColor: { type: String, default: "" },
+        backgroundUrl: { type: String, default: "" },
+        badges: { type: [String], default: [] },
+      },
+      unlocked: {
+        avatarBorders: { type: [String], default: [] },
+        nameStyles: { type: [String], default: [] },
+        chatColors: { type: [String], default: [] },
+        backgrounds: { type: [String], default: [] },
+        badges: { type: [String], default: [] },
+      },
     },
     refreshTokens: [
       {
@@ -715,6 +729,13 @@ app.patch("/api/me/settings", authenticate, csrfProtect, async (req, res) => {
       notifications: Joi.boolean().optional(),
       safeMode: Joi.boolean().optional(),
       fontSize: Joi.string().valid("small", "medium", "large").optional(),
+      cosmetics: Joi.object({
+        avatarBorder: Joi.string().allow("", null).optional(),
+        nameStyle: Joi.string().allow("", null).optional(),
+        chatBubbleColor: Joi.string().allow("", null).optional(),
+        backgroundUrl: Joi.string().uri().allow("", null).optional(),
+        badges: Joi.array().items(Joi.string()).optional(),
+      }).optional(),
     });
     const { error, value } = schema.validate(req.body);
     if (error) return res.status(400).json({ error: error.message });
@@ -727,6 +748,60 @@ app.patch("/api/me/settings", authenticate, csrfProtect, async (req, res) => {
     res.json(student);
   } catch (err) {
     console.error("settings update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Grant cosmetic rewards to a student
+app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      roll: Joi.string().required(),
+      type: Joi.string().valid("avatarBorder", "nameStyle", "chatBubbleColor", "backgroundUrl", "badge").required(),
+      value: Joi.string().required(),
+      applyNow: Joi.boolean().default(true),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll: value.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    student.settings = student.settings || {};
+    student.settings.unlocked = student.settings.unlocked || {};
+    student.settings.cosmetics = student.settings.cosmetics || {};
+
+    switch (value.type) {
+      case "avatarBorder":
+        if (!student.settings.unlocked.avatarBorders.includes(value.value)) student.settings.unlocked.avatarBorders.push(value.value);
+        if (value.applyNow) student.settings.cosmetics.avatarBorder = value.value;
+        break;
+      case "nameStyle":
+        if (!student.settings.unlocked.nameStyles.includes(value.value)) student.settings.unlocked.nameStyles.push(value.value);
+        if (value.applyNow) student.settings.cosmetics.nameStyle = value.value;
+        break;
+      case "chatBubbleColor":
+        if (!student.settings.unlocked.chatColors.includes(value.value)) student.settings.unlocked.chatColors.push(value.value);
+        if (value.applyNow) student.settings.cosmetics.chatBubbleColor = value.value;
+        break;
+      case "backgroundUrl":
+        if (!student.settings.unlocked.backgrounds.includes(value.value)) student.settings.unlocked.backgrounds.push(value.value);
+        if (value.applyNow) student.settings.cosmetics.backgroundUrl = value.value;
+        break;
+      case "badge":
+        if (!student.settings.unlocked.badges.includes(value.value)) student.settings.unlocked.badges.push(value.value);
+        if (value.applyNow) {
+          const badges = new Set([...(student.settings.cosmetics.badges || []), value.value]);
+          student.settings.cosmetics.badges = Array.from(badges);
+        }
+        break;
+    }
+
+    await student.save();
+    io.emit("cosmetic:updated", { roll: student.roll, cosmetics: student.settings.cosmetics });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("reward cosmetic error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -855,11 +930,40 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
         return res.json({ assistantReply: reply, chat });
       } catch (err) {
         console.error("Gemini call failed:", err);
-        return res.status(502).json({ error: "Upstream AI error" });
+        // graceful fallback below
       }
     }
 
-    res.status(201).json(chat);
+    // Fallback assistant reply (simple rule-based helper)
+    try {
+      const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(5).select("name");
+      const planNames = plans.map((p) => p.name).join(", ") || "no plans uploaded yet";
+
+      const lower = (value.message || "").toLowerCase();
+      let reply = `I'm here to help. I currently see ${planNames}. `;
+      if (/(first|1st).*experiment|lab\s*1|exp\s*1/.test(lower)) {
+        reply += "For the first experiment details, please refer to the latest lab manual/course plan. If the manual is a PDF, ensure text is extracted when uploading so I can answer precisely.";
+      } else if (/deadline|submission|date/.test(lower)) {
+        reply += "For deadlines, check the notices and course plan sections. If you provide the specific course/plan name, I can narrow it down.";
+      } else if (/syllabus|units?|topics?/.test(lower)) {
+        reply += "Syllabus/topics are usually inside the course plan. Please mention the course to get a focused summary.";
+      } else {
+        reply += "Ask about a specific course plan or experiment to get targeted guidance.";
+      }
+
+      const assistant = new ChatHistory({
+        roll: value.roll,
+        sender: "assistant",
+        message: reply,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+      await assistant.save();
+      io.emit("chat:new", assistant);
+      return res.json({ assistantReply: reply, chat, fallback: true });
+    } catch (e) {
+      console.error("fallback reply error:", e);
+      return res.status(201).json(chat);
+    }
   } catch (err) {
     console.error("chat post error:", err);
     res.status(500).json({ error: "Server error" });
@@ -922,6 +1026,30 @@ app.get("/api/admin/warnings/:roll", authenticate, requireAdmin, csrfProtect, as
     res.json(warnings);
   } catch (err) {
     console.error("list warnings error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Remove a specific warning (violation) and adjust student's warningsCount
+app.delete("/api/warning/:id", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const warn = await Warning.findById(req.params.id);
+    if (!warn) return res.status(404).json({ error: "Warning not found" });
+
+    await Warning.findByIdAndDelete(req.params.id);
+
+    const stu = await Student.findOne({ roll: warn.roll });
+    if (stu) {
+      const current = Number(stu.warningsCount || 0);
+      const next = Math.max(0, current - 1);
+      stu.warningsCount = next;
+      await stu.save();
+    }
+
+    io.emit("warning:updated", { roll: warn.roll });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("delete warning error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

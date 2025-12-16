@@ -290,7 +290,10 @@
 
         <div class="card">
             <h3>All Students</h3>
-            <input type="text" id="userSearchInput" placeholder="🔍 Search by name or roll..." onkeyup="filterUsers()">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="userSearchInput" placeholder="Search by name or roll..." onkeyup="filterUsers()" style="flex:1;min-width:240px;">
+              <button onclick="exportStudentData()">📥 Export CSV</button>
+            </div>
             <div style="overflow-x:auto;">
                 <table id="usersTable">
                     <thead>
@@ -472,7 +475,28 @@
             <p style="font-size:12px;opacity:0.7;margin-top:10px;">
                 Rewards appear in student mailbox with special 🎁 icon
             </p>
+            <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
+              <button onclick="document.getElementById('rewardTitle').value='Top Performer';document.getElementById('rewardContent').value='Outstanding performance this term!';document.getElementById('rewardPoints').value=100;">⭐ Top Performer</button>
+              <button onclick="document.getElementById('rewardTitle').value='Perfect Attendance';document.getElementById('rewardContent').value='Perfect attendance record. Keep it up!';document.getElementById('rewardPoints').value=50;">📅 Perfect Attendance</button>
+              <button onclick="document.getElementById('rewardTitle').value='Outstanding Project';document.getElementById('rewardContent').value='Excellent project delivery and documentation.';document.getElementById('rewardPoints').value=75;">🧪 Outstanding Project</button>
+              <button onclick="document.getElementById('rewardTitle').value='Peer Helper';document.getElementById('rewardContent').value='Recognized for helping peers consistently.';document.getElementById('rewardPoints').value=30;">🤝 Peer Helper</button>
+            </div>
         </div>
+
+                <div class="card">
+                    <h3>Cosmetic Rewards</h3>
+                    <p style="opacity:0.85">Grant visual upgrades that personalize the student's dashboard and chat.</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('avatarBorder','glow-blue')">Avatar Border: Glow Blue</button>
+                        <button onclick="grantCosmetic('avatarBorder','gold')">Avatar Border: Gold</button>
+                        <button onclick="grantCosmetic('nameStyle','gradient-gold')">Name Style: Gradient Gold</button>
+                        <button onclick="grantCosmetic('nameStyle','neon')">Name Style: Neon</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#4f46e5')">Chat Color: Indigo</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#10b981')">Chat Color: Green</button>
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1503264116251-35a269479413?q=80&w=1600&auto=format&fit=crop')">Profile Background: Aurora</button>
+                        <button onclick="grantCosmetic('badge','Star Student')">Badge: ⭐ Star Student</button>
+                    </div>
+                </div>
     </div>
 
     <!-- ============================================ -->

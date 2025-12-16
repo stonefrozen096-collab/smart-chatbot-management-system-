@@ -76,6 +76,7 @@ body {
   background: rgba(0,0,0,0.2);
 }
 .userMsg .text { background:#2563eb; }
+/* dynamic bot color will be injected at runtime */
 
 #inputSection {
   display:flex;
@@ -155,6 +156,7 @@ let TOKEN = sessionStorage.getItem("token");
 let studentProfile = JSON.parse(sessionStorage.getItem("userProfile")) || null;
 let chatHistory = JSON.parse(localStorage.getItem("chatHistory")) || [];
 let csrfToken = "";
+let botBubbleColor = "";
 
 // SESSION CHECK
 if(!TOKEN || !studentProfile){
@@ -360,6 +362,7 @@ window.onload=async ()=>{
   // Load CSRF FIRST before any operations
   await loadCSRF();
   console.log("✅ CSRF Token loaded:", csrfToken ? "Yes" : "No");
+  await loadStudentCosmetics();
   
   checkLockStatus();
   bindQuickPrompts();
@@ -380,6 +383,25 @@ async function loadCSRF(){
     const d = await r.json();
     csrfToken = d.csrfToken || "";
   }catch(e){ console.warn("CSRF load failed", e); }
+}
+
+async function loadStudentCosmetics(){
+  try{
+    const res = await fetch(`${API_URL}/api/student/${encodeURIComponent(studentProfile.roll)}`, { headers: { "Authorization": `Bearer ${TOKEN}` }});
+    if (!res.ok) return;
+    const data = await res.json();
+    const cos = data?.settings?.cosmetics || {};
+    botBubbleColor = (cos.chatBubbleColor || '').trim();
+    applyChatStyle();
+  }catch(e){ console.warn('loadStudentCosmetics failed', e); }
+}
+
+function applyChatStyle(){
+  const id = 'chat-style-dynamic';
+  let style = document.getElementById(id);
+  if (!style) { style = document.createElement('style'); style.id = id; document.head.appendChild(style); }
+  const color = botBubbleColor || '#0e7490';
+  style.textContent = `.botMsg .text{ background: ${color} !important; }`;
 }
 
 function bindQuickPrompts(){

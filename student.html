@@ -202,6 +202,14 @@
           <div>Last login: <span id="lastLogin">—</span></div>
           <div>Profile completeness: <strong id="profilePct">—</strong></div>
         </div>
+
+        <div style="margin-top:14px;">
+          <h4 style="margin:6px 0 8px 0;">My QR</h4>
+          <div id="studentQR" style="background:#fff;padding:8px;border-radius:10px;display:inline-block;">
+            <div id="studentQRContainer" style="width:140px;height:140px;"></div>
+          </div>
+          <div style="font-size:12px;opacity:0.9;margin-top:6px;">Scan to verify identity in admin panel</div>
+        </div>
       </div>
     </aside>
 
@@ -374,6 +382,68 @@
   avatarImg.addEventListener('error', () => { showLocalAvatar(); });
 
   function safeSet(el, text) { if (el) el.textContent = text ?? '—'; }
+  function applyCosmetics(settings){
+    try{
+      const cos = (settings && settings.cosmetics) || {};
+      // Background
+      if (cos.backgroundUrl) {
+        document.body.style.backgroundImage = `url('${cos.backgroundUrl}')`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+      }
+      // Avatar border
+      const av = document.querySelector('.avatar');
+      if (av) {
+        av.style.boxShadow = '';
+        av.style.border = '';
+        if (cos.avatarBorder === 'glow-blue') {
+          av.style.boxShadow = '0 0 12px rgba(59,130,246,0.8), 0 0 28px rgba(59,130,246,0.4)';
+          av.style.border = '2px solid rgba(59,130,246,0.7)';
+        } else if (cos.avatarBorder === 'gold') {
+          av.style.boxShadow = '0 0 14px rgba(234,179,8,0.8)';
+          av.style.border = '2px solid #f59e0b';
+        } else if (cos.avatarBorder === 'neon-pink') {
+          av.style.boxShadow = '0 0 14px rgba(236,72,153,0.9)';
+          av.style.border = '2px solid #ec4899';
+        }
+      }
+      // Name style
+      if (displayName) {
+        displayName.style.textShadow = '';
+        displayName.style.background = '';
+        displayName.style.webkitBackgroundClip = '';
+        displayName.style.backgroundClip = '';
+        displayName.style.color = '';
+        if (cos.nameStyle === 'gradient-gold') {
+          displayName.style.background = 'linear-gradient(90deg,#f59e0b,#fde68a)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+        } else if (cos.nameStyle === 'neon') {
+          displayName.style.textShadow = '0 0 6px rgba(59,130,246,0.9), 0 0 12px rgba(59,130,246,0.6)';
+        }
+      }
+      // Badges under name
+      const meta = displayName?.parentElement;
+      if (meta) {
+        let badgeBar = meta.querySelector('.badge-bar');
+        if (!badgeBar){
+          badgeBar = document.createElement('div');
+          badgeBar.className = 'badge-bar';
+          badgeBar.style.marginTop = '6px';
+          meta.appendChild(badgeBar);
+        }
+        badgeBar.innerHTML = '';
+        const badges = (cos.badges || []).slice(0,3);
+        badges.forEach(b => {
+          const pill = document.createElement('span');
+          pill.textContent = b;
+          pill.style.cssText = 'display:inline-block;background:rgba(255,255,255,0.15);padding:4px 8px;border-radius:999px;font-size:11px;margin-right:6px;';
+          badgeBar.appendChild(pill);
+        });
+      }
+    }catch(e){ console.warn('applyCosmetics failed', e); }
+  }
 
   // ---------- API CALLS ----------
   async function fetchProfile() {
@@ -421,6 +491,7 @@
         lockMeta.innerHTML = '';
       }
 
+      applyCosmetics(data.settings);
       renderWarningsFromProfile(data);
       return data;
     } catch (err) {
@@ -575,6 +646,7 @@
       socket.on('warning:updated', (d)=> { if(d.roll===userRoll){ fetchProfile(); fetchWarnings(); } });
       socket.on('student:locked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('student:unlocked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
+      socket.on('cosmetic:updated', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('coursePlan:updated', ()=> fetchNotices());
       socket.on('chat:new', (chat)=> { if(chat.roll===userRoll) fetchChatHistoryAndUsage(); });
     }
@@ -625,9 +697,25 @@
 
   // ---------- Initial load & polling ----------
   initDarkMode();
-  async function loadAll() { await fetchProfile(); await fetchChatHistoryAndUsage(); await fetchNotices(); await fetchWarnings(); await fetchMailbox(); }
+  async function loadAll() { await fetchProfile(); await fetchChatHistoryAndUsage(); await fetchNotices(); await fetchWarnings(); await fetchMailbox(); renderStudentQR(); }
   loadAll();
   const poll = setInterval(loadAll, 12000);
+
+  // Render student's QR (no external lib; use Image API served by admin if exists, else lightweight SVG)
+  function renderStudentQR(){
+    try{
+      const roll = userRoll;
+      const name = (document.getElementById('displayName')?.textContent||'').trim();
+      const dept = (document.getElementById('displayDept')?.textContent||'').replace('Dept: ','');
+      const payload = JSON.stringify({ roll, name, dept, ts: Date.now() });
+
+      // Generate simple QR-like block using third-party CDN as fallback (if policy allows) else render data as text block
+      const el = document.getElementById('studentQRContainer');
+      if(!el) return;
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(payload)}`;
+      el.innerHTML = `<img alt="qr" src="${url}" width="140" height="140" style="display:block"/>`;
+    }catch(e){ /* ignore */ }
+  }
 
   window.addEventListener('beforeunload', ()=> { clearInterval(poll); if(socket) socket.disconnect(); });
   showLocalAvatar();
