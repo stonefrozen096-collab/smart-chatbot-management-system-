@@ -135,6 +135,12 @@ const studentSchema = new Schema(
     warningsCount: { type: Number, default: 0 },
     locked: { type: Boolean, default: false },
     lockedUntil: { type: Date, default: null },
+    verified: { type: Boolean, default: false },
+    verifiedBadge: {
+      isActive: { type: Boolean, default: false },
+      grantedAt: Date,
+      grantedBy: String,
+    },
     settings: {
       theme: { type: String, enum: ["light", "dark"], default: "light" },
       notifications: { type: Boolean, default: true },
@@ -146,6 +152,9 @@ const studentSchema = new Schema(
         chatBubbleColor: { type: String, default: "" },
         backgroundUrl: { type: String, default: "" },
         badges: { type: [String], default: [] },
+        animatedNameEffect: { type: String, default: "" },
+        animatedBorder: { type: String, default: "" },
+        titleEffect: { type: String, default: "" },
       },
       unlocked: {
         avatarBorders: { type: [String], default: [] },
@@ -153,6 +162,9 @@ const studentSchema = new Schema(
         chatColors: { type: [String], default: [] },
         backgrounds: { type: [String], default: [] },
         badges: { type: [String], default: [] },
+        animatedNameEffects: { type: [String], default: [] },
+        animatedBorders: { type: [String], default: [] },
+        titleEffects: { type: [String], default: [] },
       },
     },
     refreshTokens: [
@@ -704,6 +716,18 @@ app.get("/api/student/:roll", authenticate, csrfProtect, async (req, res) => {
   }
 });
 
+// Current user
+app.get("/api/me", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll }).select("-passwordHash -refreshTokens");
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    res.json(student);
+  } catch (err) {
+    console.error("get me error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 app.post("/api/bgcolor", authenticate, csrfProtect, async (req, res) => {
   try {
     const { roll, bgColor } = req.body;
@@ -806,6 +830,40 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
   }
 });
 
+// ---------------------- VERIFIED BADGE ----------------------
+app.post("/api/admin/reward/verified", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      roll: Joi.string().required(),
+      grantVerified: Joi.boolean().required(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll: value.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    if (value.grantVerified) {
+      student.verified = true;
+      student.verifiedBadge = {
+        isActive: true,
+        grantedAt: new Date(),
+        grantedBy: req.user?.roll || "admin",
+      };
+    } else {
+      student.verified = false;
+      student.verifiedBadge = { isActive: false };
+    }
+
+    await student.save();
+    io.emit("verified:updated", { roll: student.roll, verified: student.verified, badge: student.verifiedBadge });
+    res.json({ ok: true, verified: student.verified });
+  } catch (err) {
+    console.error("verified badge error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ---------------------- Course Plans ----------------------
 // Setup multer for course plan uploads
 let planUpload = null;
@@ -824,7 +882,15 @@ app.post("/api/course-plan", authenticate, requireAdmin, planUpload ? planUpload
     if (req.file) {
       // File upload via FormData
       name = name || req.file.originalname;
-      content = req.file.buffer.toString('base64'); // Store as base64 for PDFs
+      // Try to parse PDF into text for strict course QA
+      try {
+        const pdfParse = (await import('pdf-parse')).default;
+        const parsed = await pdfParse(req.file.buffer);
+        content = (parsed?.text || '').trim();
+      } catch (e) {
+        console.warn('PDF parse failed; storing empty content', e?.message || e);
+        content = '';
+      }
     }
     
     if (!name) return res.status(400).json({ error: "File name required" });
@@ -894,6 +960,7 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
       sender: Joi.string().required(),
       message: Joi.string().max(4000).required(),
       useGemini: Joi.boolean().optional(),
+      strictCourse: Joi.boolean().optional(),
     });
     const { error, value } = schema.validate(req.body);
     if (error) return res.status(400).json({ error: error.message });
@@ -915,6 +982,45 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
     const chat = new ChatHistory({ roll: value.roll, sender: value.sender, message: value.message, time });
     await chat.save();
     io.emit("chat:new", chat);
+
+    // Strict course answer: reply only from course plan text or deny
+    if (value.strictCourse) {
+      try {
+        const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(5);
+        const plan = plans[0];
+        const text = (plan?.content || '').trim();
+        if (!text) {
+          return res.status(403).json({ error: "course related clarification only allowed" });
+        }
+        const q = (value.message || '').trim();
+        const tokens = q.toLowerCase().split(/\W+/).filter(Boolean);
+        let bestIdx = -1;
+        for (const t of tokens) {
+          if (t.length < 3) continue;
+          const idx = text.toLowerCase().indexOf(t);
+          if (idx >= 0) { bestIdx = idx; break; }
+        }
+        if (bestIdx < 0) {
+          return res.status(403).json({ error: "course related clarification only allowed" });
+        }
+        const start = Math.max(0, bestIdx - 300);
+        const end = Math.min(text.length, bestIdx + 500);
+        const snippet = text.slice(start, end).replace(/\s{2,}/g, ' ').trim();
+        const reply = `From course plan (${plan?.name || 'plan'}): ${snippet}`;
+        const assistant = new ChatHistory({
+          roll: value.roll,
+          sender: "assistant",
+          message: reply,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+        await assistant.save();
+        io.emit("chat:new", assistant);
+        return res.json({ assistantReply: reply, chat, strict: true });
+      } catch (e) {
+        console.error('strictCourse error:', e);
+        return res.status(403).json({ error: "course related clarification only allowed" });
+      }
+    }
 
     if (value.useGemini) {
       try {

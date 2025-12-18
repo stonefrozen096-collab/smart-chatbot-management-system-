@@ -489,12 +489,34 @@
                     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
                         <button onclick="grantCosmetic('avatarBorder','glow-blue')">Avatar Border: Glow Blue</button>
                         <button onclick="grantCosmetic('avatarBorder','gold')">Avatar Border: Gold</button>
+                        <button onclick="grantCosmetic('avatarBorder','neon-pink')">Avatar Border: Neon Pink</button>
                         <button onclick="grantCosmetic('nameStyle','gradient-gold')">Name Style: Gradient Gold</button>
                         <button onclick="grantCosmetic('nameStyle','neon')">Name Style: Neon</button>
                         <button onclick="grantCosmetic('chatBubbleColor','#4f46e5')">Chat Color: Indigo</button>
                         <button onclick="grantCosmetic('chatBubbleColor','#10b981')">Chat Color: Green</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#f59e0b')">Chat Color: Amber</button>
                         <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1503264116251-35a269479413?q=80&w=1600&auto=format&fit=crop')">Profile Background: Aurora</button>
-                        <button onclick="grantCosmetic('badge','Star Student')">Badge: ⭐ Star Student</button>
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1470770903676-69b98201ea1c?q=80&w=1600&auto=format&fit=crop')">Profile Background: Nebula</button>
+                        <button onclick="grantCosmetic('badge','⭐ Star Student')">Badge: ⭐ Star Student</button>
+                        <button onclick="grantCosmetic('badge','🏆 Top Performer')">Badge: 🏆 Top Performer</button>
+                    </div>
+
+                    <h3 style="margin-top:20px;">✨ Animated Effects</h3>
+                    <p style="opacity:0.85">Premium animated cosmetics with wow factor!</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('animatedNameEffect','rainbow-wave')">✨ Rainbow Wave Name</button>
+                        <button onclick="grantCosmetic('animatedNameEffect','shimmer')">💫 Shimmer Name</button>
+                        <button onclick="grantCosmetic('animatedBorder','pulse-glow')">🌟 Pulsing Glow Avatar</button>
+                        <button onclick="grantCosmetic('animatedBorder','rainbow-spin')">🎨 Rainbow Spin Avatar</button>
+                        <button onclick="grantCosmetic('titleEffect','crown')">👑 Crown Title Effect</button>
+                        <button onclick="grantCosmetic('titleEffect','halo')">⭐ Halo Title Effect</button>
+                    </div>
+
+                    <h3 style="margin-top:20px;">🎖️ Verified Badge</h3>
+                    <p style="opacity:0.85">Mark student as verified with a prestigious badge on their profile.</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantVerifiedBadge()" style="background:#059669;">🎖️ Grant Verified Badge</button>
+                        <button onclick="removeVerifiedBadge(document.getElementById('rewardRecipient')?.value)" style="background:#dc2626;">❌ Remove Verified Badge</button>
                     </div>
                 </div>
     </div>

@@ -97,13 +97,51 @@
       font-size: 14px;
       font-weight: 500;
     }
-  </style>
+
+    /* Cosmetics Inventory */
+    .section-title { font-weight: 600; margin: 20px 0 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card { background: rgba(255,255,255,0.18); border-radius: 12px; padding: 12px; color: #000; }
+    .card h4 { margin: 0 0 8px; color:#000; }
+    .item { background: rgba(255,255,255,0.75); border-radius: 10px; padding: 10px; display:flex; justify-content:space-between; align-items:center; }
+    .locked { opacity: 0.6; }
+    .lock-icon { margin-right: 8px; }
+    .equip-btn { padding: 8px 10px; border:none; border-radius:8px; font-weight:600; cursor:pointer; background:#005eff; color:#fff; }
+    .equip-btn[disabled] { background: #999; cursor: not-allowed; }
+    .preview-chip { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; background:#eef; color:#000; }
+    .preview-bg { height:36px; border-radius:10px; background-size:cover; background-position:center; border:1px solid rgba(0,0,0,0.12); }
+
+    /* Animated effect previews */
+    @keyframes rainbow-wave { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+    @keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 8px rgba(59,130,246,0.6); } 50% { box-shadow: 0 0 20px rgba(59,130,246,1); } }
+    @keyframes rainbow-spin { from { transform: rotate(0deg); filter: hue-rotate(0deg); } to { transform: rotate(360deg); filter: hue-rotate(360deg); } }
+
+    .animated-preview {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: #eef;
+      color: #000;
+      font-weight: 600;
+    }
+    .animated-preview.rainbow-wave { animation: rainbow-wave 2s infinite; }
+    .animated-preview.shimmer { animation: shimmer 1.5s infinite; }
+    .animated-preview.pulse-glow { animation: pulse-glow 1.5s infinite; }
+    .animated-preview.rainbow-spin { animation: rainbow-spin 3s infinite; }
+  
 </head>
 
 <body>
 
   <div class="container">
     <h2>Settings</h2>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+      <input type="text" id="refreshStatus" placeholder="Ready" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.1);color:#fff;font-size:13px;" disabled>
+      <button id="refreshCosmetics" class="btn" style="padding:10px 12px;">🔄 Refresh</button>
+    </div>
 
     <!-- THEME -->
     <div class="setting-section">
@@ -141,6 +179,41 @@
       </div>
     </div>
 
+    <!-- COSMETICS INVENTORY & EQUIP -->
+    <div class="setting-section">
+      <div class="section-title">Cosmetics Inventory</div>
+      <div class="grid">
+        <div class="card">
+          <h4>Avatar Borders</h4>
+          <div id="inv-avatarBorders"></div>
+        </div>
+        <div class="card">
+          <h4>Name Styles</h4>
+          <div id="inv-nameStyles"></div>
+        </div>
+        <div class="card">
+          <h4>Animated Names ✨</h4>
+          <div id="inv-animatedNameEffects"></div>
+        </div>
+        <div class="card">
+          <h4>Animated Borders 🌟</h4>
+          <div id="inv-animatedBorders"></div>
+        </div>
+        <div class="card">
+          <h4>Title Effects 👑</h4>
+          <div id="inv-titleEffects"></div>
+        </div>
+        <div class="card">
+          <h4>Chat Bubble Colors</h4>
+          <div id="inv-chatColors"></div>
+        </div>
+        <div class="card">
+          <h4>Profile Backgrounds</h4>
+          <div id="inv-backgrounds"></div>
+        </div>
+      </div>
+    </div>
+
     <button class="btn" id="saveBtn">Save Settings</button>
     <p id="saveMsg"></p>
 
@@ -150,26 +223,291 @@
   </div>
 
   <script>
-  const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
+  const API = "https://smart-chatbot-backend-w5tq.onrender.com";
 
-  // Correct token key
-  const token = localStorage.getItem("token");
-  if (!token) window.location.href = "index.html";
+  // Accept common token keys
+  function readStoredToken() {
+    return localStorage.getItem('token') ||
+           localStorage.getItem('accessToken') ||
+           localStorage.getItem('authToken') ||
+           sessionStorage.getItem('token') ||
+           sessionStorage.getItem('accessToken') ||
+           sessionStorage.getItem('authToken') || null;
+  }
+  const token = readStoredToken();
+  if (!token) { setTimeout(()=> location.href = 'index.html', 200); throw new Error('Not authenticated'); }
+
+  let csrfToken = "";
+  async function loadCSRF() {
+    try {
+      const res = await fetch(`${API}/api/csrf-token`, { method: "GET", credentials: "include" });
+      const data = await res.json();
+      csrfToken = data.csrfToken || "";
+    } catch (e) {
+      console.error("CSRF token fetch failed:", e);
+    }
+  }
+  loadCSRF();
+
+  function authHeaders() {
+    const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+    if (csrfToken) headers['x-csrf-token'] = csrfToken;
+    return headers;
+  }
+
+  const invAvatarBorders = document.getElementById('inv-avatarBorders');
+  const invNameStyles = document.getElementById('inv-nameStyles');
+  const invChatColors = document.getElementById('inv-chatColors');
+  const invBackgrounds = document.getElementById('inv-backgrounds');
+  const invAnimatedNameEffects = document.getElementById('inv-animatedNameEffects');
+  const invAnimatedBorders = document.getElementById('inv-animatedBorders');
+  const invTitleEffects = document.getElementById('inv-titleEffects');
+  const refreshBtn = document.getElementById('refreshCosmetics');
+  const refreshStatus = document.getElementById('refreshStatus');
+
+  const ALL = {
+    avatarBorders: [
+      { value:'glow-blue', label:'Glow Blue', preview:'🔵' },
+      { value:'gold', label:'Gold', preview:'🟡' },
+      { value:'neon-pink', label:'Neon Pink', preview:'🌸' }
+    ],
+    nameStyles: [
+      { value:'gradient-gold', label:'Gradient Gold', preview:'Golden' },
+      { value:'neon', label:'Neon', preview:'Neon' }
+    ],
+    animatedNameEffects: [
+      { value:'rainbow-wave', label:'Rainbow Wave', preview:'🌈 Animated' },
+      { value:'shimmer', label:'Shimmer', preview:'✨ Shiny' }
+    ],
+    animatedBorders: [
+      { value:'pulse-glow', label:'Pulsing Glow', preview:'🌟 Pulse' },
+      { value:'rainbow-spin', label:'Rainbow Spin', preview:'🎨 Spin' }
+    ],
+    titleEffects: [
+      { value:'crown', label:'Crown', preview:'👑 Royal' },
+      { value:'halo', label:'Halo', preview:'⭐ Holy' }
+    ],
+    chatColors: [
+      { value:'#60a5fa', label:'Sky Blue', preview:'#60a5fa' },
+      { value:'#f59e0b', label:'Amber', preview:'#f59e0b' },
+      { value:'#34d399', label:'Emerald', preview:'#34d399' },
+      { value:'#ec4899', label:'Pink', preview:'#ec4899' },
+      { value:'#8b5cf6', label:'Purple', preview:'#8b5cf6' }
+    ],
+    backgrounds: [
+      { value:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop', label:'Aurora' },
+      { value:'https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1200&auto=format&fit=crop', label:'Mountains' },
+      { value:'https://images.unsplash.com/photo-1470770903676-69b98201ea1c?q=80&w=1200&auto=format&fit=crop', label:'Nebula' }
+    ]
+  };
+
+  let profile = null;
+
+  function isUnlocked(type, value) {
+    const unlocked = profile?.settings?.unlocked || {};
+    const list = unlocked[type] || [];
+    return Array.isArray(list) && list.includes(value);
+  }
+
+  function currentValueFor(type) {
+    const cos = profile?.settings?.cosmetics || {};
+    if (type === 'avatarBorders') return cos.avatarBorder || null;
+    if (type === 'nameStyles') return cos.nameStyle || null;
+    if (type === 'animatedNameEffects') return cos.animatedNameEffect || null;
+    if (type === 'animatedBorders') return cos.animatedBorder || null;
+    if (type === 'titleEffects') return cos.titleEffect || null;
+    if (type === 'chatColors') return cos.chatColor || null;
+    if (type === 'backgrounds') return cos.backgroundUrl || null;
+    return null;
+  }
+
+  async function equipCosmetic(type, value) {
+    const body = { cosmetics: {} };
+    if (type === 'avatarBorders') body.cosmetics.avatarBorder = value;
+    else if (type === 'nameStyles') body.cosmetics.nameStyle = value;
+    else if (type === 'chatColors') body.cosmetics.chatColor = value;
+    else if (type === 'backgrounds') body.cosmetics.backgroundUrl = value;
+
+    try {
+      const res = await fetch(`${API}/api/me/settings`, { method:'PATCH', headers: authHeaders(), body: JSON.stringify(body) });
+      if (!res.ok) throw new Error('Failed to equip');
+      const data = await res.json();
+      profile = data;
+      renderInventory();
+      saveMsg.style.color = 'lightgreen';
+      saveMsg.textContent = '✔ Cosmetic equipped!';
+    } catch (e) {
+      saveMsg.style.color = 'salmon';
+      saveMsg.textContent = 'Failed to equip item.';
+    }
+  }
+
+  function renderInventory() {
+    // Avatar Borders
+    invAvatarBorders.innerHTML = '';
+    ALL.avatarBorders.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('avatarBorders', item.value);
+      const selected = currentValueFor('avatarBorders') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}<span class="preview-chip">${item.label}</span>`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('avatarBorders', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invAvatarBorders.appendChild(wrap);
+    });
+
+    // Name Styles
+    invNameStyles.innerHTML = '';
+    ALL.nameStyles.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('nameStyles', item.value);
+      const selected = currentValueFor('nameStyles') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}<span class="preview-chip">${item.label}</span>`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('nameStyles', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invNameStyles.appendChild(wrap);
+    });
+
+    // Chat Colors
+    invChatColors.innerHTML = '';
+    ALL.chatColors.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('chatColors', item.value);
+      const selected = currentValueFor('chatColors') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}<span class="preview-chip" style="background:${item.preview}; color:#fff;">${item.label}</span>`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('chatColors', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invChatColors.appendChild(wrap);
+    });
+
+    // Backgrounds
+    invBackgrounds.innerHTML = '';
+    ALL.backgrounds.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('backgrounds', item.value);
+      const selected = currentValueFor('backgrounds') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      const preview = `<div class="preview-bg" style="background-image:url('${item.value}')"></div>`;
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}${preview}`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('backgrounds', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invBackgrounds.appendChild(wrap);
+    });
+
+    // Animated Name Effects
+    invAnimatedNameEffects.innerHTML = '';
+    ALL.animatedNameEffects.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('animatedNameEffects', item.value);
+      const selected = currentValueFor('animatedNameEffects') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      const preview = `<span class="animated-preview ${item.value}">${item.label}</span>`;
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}${preview}`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('animatedNameEffects', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invAnimatedNameEffects.appendChild(wrap);
+    });
+
+    // Animated Borders
+    invAnimatedBorders.innerHTML = '';
+    ALL.animatedBorders.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('animatedBorders', item.value);
+      const selected = currentValueFor('animatedBorders') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      const preview = `<span class="animated-preview ${item.value}">${item.label}</span>`;
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}${preview}`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('animatedBorders', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invAnimatedBorders.appendChild(wrap);
+    });
+
+    // Title Effects
+    invTitleEffects.innerHTML = '';
+    ALL.titleEffects.forEach(item => {
+      const wrap = document.createElement('div');
+      const unlocked = isUnlocked('titleEffects', item.value);
+      const selected = currentValueFor('titleEffects') === item.value;
+      wrap.className = 'item' + (unlocked ? '' : ' locked');
+      const left = document.createElement('div');
+      left.innerHTML = `${unlocked ? '' : '<span class="lock-icon">🔒</span>'}<span class="preview-chip">${item.preview}</span>`;
+      const right = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.className = 'equip-btn';
+      btn.textContent = selected ? 'Equipped' : 'Equip';
+      btn.disabled = !unlocked || selected;
+      btn.onclick = () => equipCosmetic('titleEffects', item.value);
+      right.appendChild(btn);
+      wrap.appendChild(left);
+      wrap.appendChild(right);
+      invTitleEffects.appendChild(wrap);
+    });
+  }
 
   async function loadSettings() {
     try {
-      const res = await fetch(`${API_URL}/api/user/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const res = await fetch(`${API}/api/me`, { headers: authHeaders() });
       const data = await res.json();
-      if (!data.settings) return;
+      if (!data || !data.settings) return;
 
-      theme.value = data.settings.theme;
-      fontSize.value = data.settings.fontSize;
-      notifications.checked = data.settings.notifications;
-      safeMode.checked = data.settings.safeMode;
+      profile = data;
 
+      theme.value = data.settings.theme || 'system';
+      fontSize.value = data.settings.fontSize || 'medium';
+      notifications.checked = !!data.settings.notifications;
+      safeMode.checked = !!data.settings.safeMode;
+
+      renderInventory();
     } catch (err) {
       console.error(err);
     }
@@ -177,7 +515,35 @@
 
   loadSettings();
 
-  // Save settings
+  // Refresh button - manual reload
+  refreshBtn.addEventListener("click", async () => {
+    refreshStatus.value = '🔄 Refreshing...';
+    refreshBtn.disabled = true;
+    await loadSettings();
+    refreshStatus.value = '✅ Updated!';
+    setTimeout(() => { refreshStatus.value = 'Ready'; refreshBtn.disabled = false; }, 2000);
+  });
+
+  // Socket.IO real-time cosmetic updates
+  try {
+    if (typeof io !== 'undefined') {
+      const socket = io(API);
+      socket.on('cosmetic:updated', (data) => {
+        refreshStatus.value = '🔔 Cosmetics updated!';
+        loadSettings();
+        setTimeout(() => { refreshStatus.value = 'Ready'; }, 2000);
+      });
+      socket.on('verified:updated', (data) => {
+        refreshStatus.value = '🎖️ Verified badge updated!';
+        loadSettings();
+        setTimeout(() => { refreshStatus.value = 'Ready'; }, 2000);
+      });
+    }
+  } catch (e) {
+    console.warn('Socket.IO not available for realtime updates', e);
+  }
+
+  // Save non-cosmetic settings
   saveBtn.addEventListener("click", async () => {
     const body = {
       theme: theme.value,
@@ -186,26 +552,26 @@
       safeMode: safeMode.checked
     };
 
-    const res = await fetch(`${API_URL}/api/user/settings`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(body)
-    });
-
-    const out = await res.json();
-
-    saveMsg.style.color = res.ok ? "lightgreen" : "salmon";
-    saveMsg.textContent = res.ok ? "✔ Settings saved!" : out.error;
+    try {
+      const res = await fetch(`${API}/api/me/settings`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      const out = await res.json();
+      saveMsg.style.color = res.ok ? "lightgreen" : "salmon";
+      saveMsg.textContent = res.ok ? "✔ Settings saved!" : (out?.error || 'Failed to save settings');
+    } catch (e) {
+      saveMsg.style.color = "salmon";
+      saveMsg.textContent = 'Failed to save settings';
+    }
   });
 
   // Delete account
   deleteAccountBtn.addEventListener("click", async () => {
     if (!confirm("Are you sure? This will permanently delete your account.")) return;
 
-    const res = await fetch(`${API_URL}/api/user/delete`, {
+    const res = await fetch(`${API}/api/user/delete`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     });

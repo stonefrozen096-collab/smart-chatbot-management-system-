@@ -188,6 +188,9 @@
           <div class="profile-meta">
             <h2 id="displayName">Loading...</h2>
             <p id="displayEmail" class="muted">email@example.com</p>
+            <div id="verifiedBadge" style="margin-top:4px;display:none;">
+              <span style="display:inline-block;background:#059669;color:#fff;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;">🎖️ Verified Student</span>
+            </div>
             <p id="displayRoll" class="muted mutedSmall" style="font-size:13px">Roll: —</p>
             <p id="displayDept" class="muted mutedSmall" style="font-size:13px">Dept: —</p>
           </div>
@@ -360,8 +363,7 @@
   const lastLoginEl = document.getElementById('lastLogin');
   const profilePct = document.getElementById('profilePct');
 
-  // ---------- UTILS ----------
-  function svgInitialsDataUrl(initials) {
+  function applyCosmetics(settings){
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
           <rect fill='%23ffffff' width='100%' height='100%' rx='100'/>
           <text x='50%' y='54%' font-size='72' text-anchor='middle' fill='%23000' font-family='Poppins'>${initials}</text>
@@ -406,6 +408,12 @@
           av.style.boxShadow = '0 0 14px rgba(236,72,153,0.9)';
           av.style.border = '2px solid #ec4899';
         }
+        // Animated borders
+        if (cos.animatedBorder === 'pulse-glow') {
+          av.style.animation = 'cosmetic-pulse 1.5s infinite';
+        } else if (cos.animatedBorder === 'rainbow-spin') {
+          av.style.animation = 'cosmetic-spin 3s infinite';
+        }
       }
       // Name style
       if (displayName) {
@@ -414,6 +422,7 @@
         displayName.style.webkitBackgroundClip = '';
         displayName.style.backgroundClip = '';
         displayName.style.color = '';
+        displayName.style.animation = '';
         if (cos.nameStyle === 'gradient-gold') {
           displayName.style.background = 'linear-gradient(90deg,#f59e0b,#fde68a)';
           displayName.style.webkitBackgroundClip = 'text';
@@ -421,6 +430,12 @@
           displayName.style.color = 'transparent';
         } else if (cos.nameStyle === 'neon') {
           displayName.style.textShadow = '0 0 6px rgba(59,130,246,0.9), 0 0 12px rgba(59,130,246,0.6)';
+        }
+        // Animated name effects
+        if (cos.animatedNameEffect === 'rainbow-wave') {
+          displayName.style.animation = 'cosmetic-rainbow 2s infinite';
+        } else if (cos.animatedNameEffect === 'shimmer') {
+          displayName.style.animation = 'cosmetic-shimmer 1.5s infinite';
         }
       }
       // Badges under name
@@ -442,7 +457,40 @@
           badgeBar.appendChild(pill);
         });
       }
+      // Verified badge
+      const verifiedEl = document.getElementById('verifiedBadge');
+      if (verifiedEl) {
+        verifiedEl.style.display = (settings?.verified) ? 'block' : 'none';
+      }
+      // Inject cosmetic animations if not already present
+      injectCosmeticAnimations();
     }catch(e){ console.warn('applyCosmetics failed', e); }
+  }
+
+  // ---------- COSMETIC ANIMATIONS INJECTOR ----------
+  function injectCosmeticAnimations() {
+    if (document.getElementById('cosmetic-animations')) return;
+    const style = document.createElement('style');
+    style.id = 'cosmetic-animations';
+    style.textContent = `
+      @keyframes cosmetic-pulse {
+        0%, 100% { box-shadow: 0 0 8px rgba(59,130,246,0.6); }
+        50% { box-shadow: 0 0 20px rgba(59,130,246,1); }
+      }
+      @keyframes cosmetic-spin {
+        from { transform: rotate(0deg); filter: hue-rotate(0deg); }
+        to { transform: rotate(360deg); filter: hue-rotate(360deg); }
+      }
+      @keyframes cosmetic-rainbow {
+        0% { filter: hue-rotate(0deg); }
+        100% { filter: hue-rotate(360deg); }
+      }
+      @keyframes cosmetic-shimmer {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   // ---------- API CALLS ----------
@@ -647,6 +695,7 @@
       socket.on('student:locked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('student:unlocked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('cosmetic:updated', (d)=> { if(d.roll===userRoll) fetchProfile(); });
+      socket.on('verified:updated', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('coursePlan:updated', ()=> fetchNotices());
       socket.on('chat:new', (chat)=> { if(chat.roll===userRoll) fetchChatHistoryAndUsage(); });
     }

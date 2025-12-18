@@ -411,6 +411,45 @@ async function grantCosmetic(type, value, applyNow = true) {
   }
 }
 
+async function grantVerifiedBadge(roll) {
+  if (!roll) {
+    roll = document.getElementById('rewardRecipient')?.value.trim();
+    if (!roll) return alert('Enter a recipient roll in the Rewards section');
+  }
+  
+  const res = await secureFetch(`${API}/api/admin/reward/verified`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll, grantVerified: true })
+  });
+  
+  if (res && res.ok) {
+    alert(`✅ Verified badge granted to ${roll}! 🎖️`);
+    loadStudents();
+  } else {
+    const t = await res?.text();
+    alert('❌ Failed to grant verified badge: ' + t);
+  }
+}
+
+async function removeVerifiedBadge(roll) {
+  if (!confirm(`Remove verified badge from ${roll}?`)) return;
+  
+  const res = await secureFetch(`${API}/api/admin/reward/verified`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll, grantVerified: false })
+  });
+  
+  if (res && res.ok) {
+    alert(`✅ Verified badge removed from ${roll}`);
+    loadStudents();
+  } else {
+    const t = await res?.text();
+    alert('❌ Failed to remove verified badge: ' + t);
+  }
+}
+
 async function broadcastMessage() {
   const title = document.getElementById('broadcastTitle')?.value.trim();
   const content = document.getElementById('broadcastContent')?.value.trim();

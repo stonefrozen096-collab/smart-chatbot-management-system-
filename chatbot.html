@@ -169,8 +169,9 @@ function safe(text){ return text.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>
 
 // DISPLAY STUDENT INFO
 function displayStudentInfo(){
+  const verified = studentProfile?.verified ? ' 🎖️ ' : '';
   document.getElementById("studentInfo").innerHTML=
-    `👤 ${safe(studentProfile.name)} | 🎓 ${safe(studentProfile.roll)} | ${safe(studentProfile.dept)} - ${safe(studentProfile.cls)}`;
+    `👤 ${safe(studentProfile.name)}${verified} | 🎓 ${safe(studentProfile.roll)} | ${safe(studentProfile.dept)} - ${safe(studentProfile.cls)}`;
 }
 
 // GENERATE INITIALS AVATAR
@@ -307,7 +308,7 @@ async function sendMessage(){
         roll: studentProfile.roll, 
         sender: "user", 
         message: enhancedMessage, 
-        useGemini: true 
+        strictCourse: true 
       })
     });
     
@@ -390,9 +391,11 @@ async function loadStudentCosmetics(){
     const res = await fetch(`${API_URL}/api/student/${encodeURIComponent(studentProfile.roll)}`, { headers: { "Authorization": `Bearer ${TOKEN}` }});
     if (!res.ok) return;
     const data = await res.json();
+    if (data.verified) studentProfile.verified = true;
     const cos = data?.settings?.cosmetics || {};
-    botBubbleColor = (cos.chatBubbleColor || '').trim();
+    botBubbleColor = (cos.chatColor || cos.chatBubbleColor || '').trim();
     applyChatStyle();
+    displayStudentInfo();
   }catch(e){ console.warn('loadStudentCosmetics failed', e); }
 }
 
