@@ -222,6 +222,7 @@
 
   </div>
 
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
   const API = "https://smart-chatbot-backend-w5tq.onrender.com";
 
@@ -264,6 +265,16 @@
   const invTitleEffects = document.getElementById('inv-titleEffects');
   const refreshBtn = document.getElementById('refreshCosmetics');
   const refreshStatus = document.getElementById('refreshStatus');
+
+  // Form elements
+  const theme = document.getElementById('theme');
+  const fontSize = document.getElementById('fontSize');
+  const notifications = document.getElementById('notifications');
+  const safeMode = document.getElementById('safeMode');
+  const saveBtn = document.getElementById('saveBtn');
+  const saveMsg = document.getElementById('saveMsg');
+  const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
 
   const ALL = {
     avatarBorders: [
@@ -325,6 +336,9 @@
     const body = { cosmetics: {} };
     if (type === 'avatarBorders') body.cosmetics.avatarBorder = value;
     else if (type === 'nameStyles') body.cosmetics.nameStyle = value;
+    else if (type === 'animatedNameEffects') body.cosmetics.animatedNameEffect = value;
+    else if (type === 'animatedBorders') body.cosmetics.animatedBorder = value;
+    else if (type === 'titleEffects') body.cosmetics.titleEffect = value;
     else if (type === 'chatColors') body.cosmetics.chatColor = value;
     else if (type === 'backgrounds') body.cosmetics.backgroundUrl = value;
 
@@ -516,27 +530,29 @@
   loadSettings();
 
   // Refresh button - manual reload
-  refreshBtn.addEventListener("click", async () => {
-    refreshStatus.value = '🔄 Refreshing...';
-    refreshBtn.disabled = true;
-    await loadSettings();
-    refreshStatus.value = '✅ Updated!';
-    setTimeout(() => { refreshStatus.value = 'Ready'; refreshBtn.disabled = false; }, 2000);
-  });
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", async () => {
+      if (refreshStatus) refreshStatus.value = '🔄 Refreshing...';
+      refreshBtn.disabled = true;
+      await loadSettings();
+      if (refreshStatus) refreshStatus.value = '✅ Updated!';
+      setTimeout(() => { if (refreshStatus) refreshStatus.value = 'Ready'; refreshBtn.disabled = false; }, 2000);
+    });
+  }
 
   // Socket.IO real-time cosmetic updates
   try {
     if (typeof io !== 'undefined') {
       const socket = io(API);
       socket.on('cosmetic:updated', (data) => {
-        refreshStatus.value = '🔔 Cosmetics updated!';
+        if (refreshStatus) refreshStatus.value = '🔔 Cosmetics updated!';
         loadSettings();
-        setTimeout(() => { refreshStatus.value = 'Ready'; }, 2000);
+        setTimeout(() => { if (refreshStatus) refreshStatus.value = 'Ready'; }, 2000);
       });
       socket.on('verified:updated', (data) => {
-        refreshStatus.value = '🎖️ Verified badge updated!';
+        if (refreshStatus) refreshStatus.value = '🎖️ Verified badge updated!';
         loadSettings();
-        setTimeout(() => { refreshStatus.value = 'Ready'; }, 2000);
+        setTimeout(() => { if (refreshStatus) refreshStatus.value = 'Ready'; }, 2000);
       });
     }
   } catch (e) {
