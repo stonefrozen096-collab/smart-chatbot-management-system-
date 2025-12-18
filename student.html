@@ -103,6 +103,15 @@
 
   .small {font-size:13px;padding:8px 10px;border-radius:8px}
 
+  /* Verified Badge */
+  #verifiedBadge svg {
+    transition: transform 0.3s ease, filter 0.3s ease;
+  }
+  #verifiedBadge:hover svg {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 6px rgba(0,102,204,0.6));
+  }
+
   /* MIDDLE & RIGHT column */
   .right-col{
     display:grid;
@@ -189,7 +198,10 @@
             <h2 id="displayName">Loading...</h2>
             <p id="displayEmail" class="muted">email@example.com</p>
             <div id="verifiedBadge" style="margin-top:4px;display:none;">
-              <span style="display:inline-block;background:#059669;color:#fff;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;">🎖️ Verified Student</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;margin-left:4px;margin-bottom:2px;">
+                <circle cx="12" cy="12" r="12" fill="#0066CC"/>
+                <path d="M9.5 15.5l-2-2m0 0l5-5m-5 5l2 2m0 0l5-5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
             </div>
             <p id="displayRoll" class="muted mutedSmall" style="font-size:13px">Roll: —</p>
             <p id="displayDept" class="muted mutedSmall" style="font-size:13px">Dept: —</p>
