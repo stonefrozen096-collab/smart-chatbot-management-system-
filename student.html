@@ -775,7 +775,17 @@
       socket.on('warning:updated', (d)=> { if(d.roll===userRoll){ fetchProfile(); fetchWarnings(); } });
       socket.on('student:locked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('student:unlocked', (d)=> { if(d.roll===userRoll) fetchProfile(); });
-      socket.on('cosmetic:updated', (d)=> { if(d.roll===userRoll) fetchProfile(); });
+      socket.on('cosmetic:updated', (d)=> { 
+        if(d.roll===userRoll) {
+          console.log('Cosmetic updated:', d);
+          fetchProfile();
+          if(currentProfile) {
+            currentProfile.settings = currentProfile.settings || {};
+            currentProfile.settings.unlocked = d.unlocked || currentProfile.settings.unlocked;
+            currentProfile.settings.cosmetics = d.cosmetics || currentProfile.settings.cosmetics;
+          }
+        }
+      });
       socket.on('verified:updated', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('coursePlan:updated', ()=> fetchNotices());
       socket.on('chat:new', (chat)=> { if(chat.roll===userRoll) fetchChatHistoryAndUsage(); });
