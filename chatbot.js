@@ -1,5 +1,6 @@
 // ==================== CONFIG ====================
-const API_URL = "https://smart-chatbot-backend-w5tq.onrender.com";
+// Use same-origin API so frontend follows the deployed backend host
+const API_URL = "";
 let TOKEN = "";
 let socket = null;
 
@@ -126,12 +127,6 @@ sendBtn?.addEventListener("click", async () => {
   await addMessage("user", message);
   chatInput.value = "";
 
-  if (!isValidSyllabusQuery(message)) {
-    await registerWarning();
-    await addMessage("bot", "⚠️ Only syllabus-related questions allowed.");
-    return;
-  }
-
   const reply = await askGemini(message);
   await addMessage("bot", reply);
 });
@@ -145,20 +140,6 @@ async function addMessage(sender, text, time = null) {
 
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
-
-  if (sender === "user") {
-    // save only user messages
-    await secureFetch(`${API_URL}/api/chat`, {
-      method: "POST",
-      body: JSON.stringify({
-        roll: studentProfile.roll,
-        sender: "user",
-        message: text,
-        useGemini: true,
-        strictCourse: true
-      })
-    });
-  }
 }
 
 // ==================== CHAT HISTORY ====================

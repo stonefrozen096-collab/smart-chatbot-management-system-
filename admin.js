@@ -3,7 +3,8 @@
    Fixed: Lock/Unlock, Warnings, Messages, Rewards, QR Codes, Dark Mode
 ========================================================================== */
 
-const API = "https://smart-chatbot-backend-w5tq.onrender.com";
+// Use same-origin API so admin panel follows deployed backend host
+const API = "";
 let csrfToken = "";
 let allStudents = [];
 let darkMode = localStorage.getItem('adminDarkMode') === 'true';
