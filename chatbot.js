@@ -154,7 +154,8 @@ async function addMessage(sender, text, time = null) {
         roll: studentProfile.roll,
         sender: "user",
         message: text,
-        useGemini: true
+        useGemini: true,
+        strictCourse: true
       })
     });
   }
@@ -219,7 +220,8 @@ async function askGemini(prompt) {
       roll: studentProfile.roll,
       sender: "user",
       message: prompt,
-      useGemini: true
+      useGemini: true,
+      strictCourse: true
     })
   });
 
@@ -283,8 +285,8 @@ function initSocket() {
     });
 
     socket.on("chat:new", (chat) => {
-      if (chat.roll === studentProfile.roll && chat.sender === "bot") {
-        addMessage("bot", chat.message);
+      if (chat.roll === studentProfile.roll && chat.sender === "assistant") {
+        addMessage("bot", chat.message, chat.time);
       }
     });
 
