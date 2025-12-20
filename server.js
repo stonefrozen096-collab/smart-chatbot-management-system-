@@ -839,6 +839,16 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     student.settings.unlocked = student.settings.unlocked || {};
     student.settings.cosmetics = student.settings.cosmetics || {};
 
+    // Ensure all unlocked arrays exist
+    if (!student.settings.unlocked.avatarBorders) student.settings.unlocked.avatarBorders = [];
+    if (!student.settings.unlocked.nameStyles) student.settings.unlocked.nameStyles = [];
+    if (!student.settings.unlocked.chatColors) student.settings.unlocked.chatColors = [];
+    if (!student.settings.unlocked.backgrounds) student.settings.unlocked.backgrounds = [];
+    if (!student.settings.unlocked.badges) student.settings.unlocked.badges = [];
+    if (!student.settings.unlocked.animatedNameEffects) student.settings.unlocked.animatedNameEffects = [];
+    if (!student.settings.unlocked.animatedBorders) student.settings.unlocked.animatedBorders = [];
+    if (!student.settings.unlocked.titleEffects) student.settings.unlocked.titleEffects = [];
+
     switch (value.type) {
       case "avatarBorder":
         if (!student.settings.unlocked.avatarBorders.includes(value.value)) student.settings.unlocked.avatarBorders.push(value.value);
@@ -882,8 +892,12 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     }
 
     await student.save();
-    io.emit("cosmetic:updated", { roll: student.roll, cosmetics: student.settings.cosmetics });
-    res.json({ ok: true });
+    io.emit("cosmetic:updated", { 
+      roll: student.roll, 
+      cosmetics: student.settings.cosmetics,
+      unlocked: student.settings.unlocked 
+    });
+    res.json({ ok: true, message: `Unlocked ${value.type}: ${value.value}` });
   } catch (err) {
     console.error("reward cosmetic error:", err);
     res.status(500).json({ error: "Server error" });
@@ -1095,6 +1109,27 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
           const text = (cfg.promptTopics || '').trim();
           if (!text) return res.status(403).json({ error: "Course topics not configured" });
 
+          // Use Gemini to generate answer based on prompt topics context
+          if (value.useGemini) {
+            try {
+              const context = `You are a helpful educational assistant. Answer the student's question based on these topics: ${text}`;
+              const reply = await callGemini(value.message, { userRoll: value.roll, context });
+              const assistant = new ChatHistory({
+                roll: value.roll,
+                sender: "assistant",
+                message: reply,
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              });
+              await assistant.save();
+              io.emit("chat:new", assistant);
+              return res.json({ assistantReply: reply, chat });
+            } catch (e) {
+              console.error('Gemini error with topics:', e);
+              return res.status(500).json({ error: "AI response failed" });
+            }
+          }
+
+          // Fallback: keyword match and return relevant snippet
           const q = (value.message || '').trim();
           const tokens = q.toLowerCase().split(/\W+/).filter(Boolean);
           let bestIdx = -1;
@@ -1103,12 +1138,12 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
             const idx = text.toLowerCase().indexOf(t);
             if (idx >= 0) { bestIdx = idx; break; }
           }
-          if (bestIdx < 0) return res.status(403).json({ error: "course related clarification only allowed" });
+          if (bestIdx < 0) return res.status(403).json({ error: "question not related to configured topics" });
 
-          const start = Math.max(0, bestIdx - 300);
-          const end = Math.min(text.length, bestIdx + 500);
+          const start = Math.max(0, bestIdx - 200);
+          const end = Math.min(text.length, bestIdx + 400);
           const snippet = text.slice(start, end).replace(/\s{2,}/g, ' ').trim();
-          const reply = `From topics: ${snippet}`;
+          const reply = `Based on configured topics: ${snippet}`;
           const assistant = new ChatHistory({
             roll: value.roll,
             sender: "assistant",
