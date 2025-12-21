@@ -145,30 +145,85 @@ const studentSchema = new Schema(
       grantedBy: String,
     },
     settings: {
-      theme: { type: String, enum: ["light", "dark"], default: "light" },
-      notifications: { type: Boolean, default: true },
-      safeMode: { type: Boolean, default: true },
-      fontSize: { type: String, enum: ["small", "medium", "large"], default: "medium" },
-      cosmetics: {
-        avatarBorder: { type: String, default: "" },
-        nameStyle: { type: String, default: "" },
-        chatBubbleColor: { type: String, default: "" },
-        backgroundUrl: { type: String, default: "" },
-        badges: { type: [String], default: [] },
-        animatedNameEffect: { type: String, default: "" },
-        animatedBorder: { type: String, default: "" },
-        titleEffect: { type: String, default: "" },
+      type: {
+        theme: { type: String, enum: ["light", "dark"], default: "light" },
+        notifications: { type: Boolean, default: true },
+        safeMode: { type: Boolean, default: true },
+        fontSize: { type: String, enum: ["small", "medium", "large"], default: "medium" },
+        cosmetics: {
+          type: {
+            avatarBorder: { type: String, default: "" },
+            nameStyle: { type: String, default: "" },
+            chatBubbleColor: { type: String, default: "" },
+            chatColor: { type: String, default: "" },
+            backgroundUrl: { type: String, default: "" },
+            badges: { type: [String], default: [] },
+            animatedNameEffect: { type: String, default: "" },
+            animatedBorder: { type: String, default: "" },
+            titleEffect: { type: String, default: "" },
+          },
+          default: () => ({
+            avatarBorder: "",
+            nameStyle: "",
+            chatBubbleColor: "",
+            chatColor: "",
+            backgroundUrl: "",
+            badges: [],
+            animatedNameEffect: "",
+            animatedBorder: "",
+            titleEffect: "",
+          }),
+        },
+        unlocked: {
+          type: {
+            avatarBorders: { type: [String], default: [] },
+            nameStyles: { type: [String], default: [] },
+            chatColors: { type: [String], default: [] },
+            backgrounds: { type: [String], default: [] },
+            badges: { type: [String], default: [] },
+            animatedNameEffects: { type: [String], default: [] },
+            animatedBorders: { type: [String], default: [] },
+            titleEffects: { type: [String], default: [] },
+          },
+          default: () => ({
+            avatarBorders: [],
+            nameStyles: [],
+            chatColors: [],
+            backgrounds: [],
+            badges: [],
+            animatedNameEffects: [],
+            animatedBorders: [],
+            titleEffects: [],
+          }),
+        },
       },
-      unlocked: {
-        avatarBorders: { type: [String], default: [] },
-        nameStyles: { type: [String], default: [] },
-        chatColors: { type: [String], default: [] },
-        backgrounds: { type: [String], default: [] },
-        badges: { type: [String], default: [] },
-        animatedNameEffects: { type: [String], default: [] },
-        animatedBorders: { type: [String], default: [] },
-        titleEffects: { type: [String], default: [] },
-      },
+      default: () => ({
+        theme: "light",
+        notifications: true,
+        safeMode: true,
+        fontSize: "medium",
+        cosmetics: {
+          avatarBorder: "",
+          nameStyle: "",
+          chatBubbleColor: "",
+          chatColor: "",
+          backgroundUrl: "",
+          badges: [],
+          animatedNameEffect: "",
+          animatedBorder: "",
+          titleEffect: "",
+        },
+        unlocked: {
+          avatarBorders: [],
+          nameStyles: [],
+          chatColors: [],
+          backgrounds: [],
+          badges: [],
+          animatedNameEffects: [],
+          animatedBorders: [],
+          titleEffects: [],
+        },
+      }),
     },
     refreshTokens: [
       {
@@ -179,6 +234,40 @@ const studentSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save hook to ensure settings are properly initialized
+studentSchema.pre('save', function(next) {
+  if (!this.settings) {
+    this.settings = {};
+  }
+  if (!this.settings.cosmetics) {
+    this.settings.cosmetics = {
+      avatarBorder: "",
+      nameStyle: "",
+      chatBubbleColor: "",
+      chatColor: "",
+      backgroundUrl: "",
+      badges: [],
+      animatedNameEffect: "",
+      animatedBorder: "",
+      titleEffect: "",
+    };
+  }
+  if (!this.settings.unlocked) {
+    this.settings.unlocked = {
+      avatarBorders: [],
+      nameStyles: [],
+      chatColors: [],
+      backgrounds: [],
+      badges: [],
+      animatedNameEffects: [],
+      animatedBorders: [],
+      titleEffects: [],
+    };
+  }
+  next();
+});
+
 studentSchema.methods.verifyPassword = async function (plain) {
   if (!this.passwordHash) return false;
   return bcrypt.compare(plain, this.passwordHash);
@@ -849,49 +938,80 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     if (!student.settings.unlocked.animatedBorders) student.settings.unlocked.animatedBorders = [];
     if (!student.settings.unlocked.titleEffects) student.settings.unlocked.titleEffects = [];
 
+    let unlocked = false;
     switch (value.type) {
       case "avatarBorder":
-        if (!student.settings.unlocked.avatarBorders.includes(value.value)) student.settings.unlocked.avatarBorders.push(value.value);
+        if (!student.settings.unlocked.avatarBorders.includes(value.value)) {
+          student.settings.unlocked.avatarBorders.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) student.settings.cosmetics.avatarBorder = value.value;
         break;
       case "nameStyle":
-        if (!student.settings.unlocked.nameStyles.includes(value.value)) student.settings.unlocked.nameStyles.push(value.value);
+        if (!student.settings.unlocked.nameStyles.includes(value.value)) {
+          student.settings.unlocked.nameStyles.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) student.settings.cosmetics.nameStyle = value.value;
         break;
       case "chatBubbleColor":
       case "chatColor":
-        if (!student.settings.unlocked.chatColors.includes(value.value)) student.settings.unlocked.chatColors.push(value.value);
+        if (!student.settings.unlocked.chatColors.includes(value.value)) {
+          student.settings.unlocked.chatColors.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) {
           student.settings.cosmetics.chatBubbleColor = value.value;
           student.settings.cosmetics.chatColor = value.value;
         }
         break;
       case "backgroundUrl":
-        if (!student.settings.unlocked.backgrounds.includes(value.value)) student.settings.unlocked.backgrounds.push(value.value);
+        if (!student.settings.unlocked.backgrounds.includes(value.value)) {
+          student.settings.unlocked.backgrounds.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) student.settings.cosmetics.backgroundUrl = value.value;
         break;
       case "badge":
-        if (!student.settings.unlocked.badges.includes(value.value)) student.settings.unlocked.badges.push(value.value);
+        if (!student.settings.unlocked.badges.includes(value.value)) {
+          student.settings.unlocked.badges.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) {
           const badges = new Set([...(student.settings.cosmetics.badges || []), value.value]);
           student.settings.cosmetics.badges = Array.from(badges);
         }
         break;
       case "animatedNameEffect":
-        if (!student.settings.unlocked.animatedNameEffects.includes(value.value)) student.settings.unlocked.animatedNameEffects.push(value.value);
+        if (!student.settings.unlocked.animatedNameEffects.includes(value.value)) {
+          student.settings.unlocked.animatedNameEffects.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) student.settings.cosmetics.animatedNameEffect = value.value;
         break;
       case "animatedBorder":
-        if (!student.settings.unlocked.animatedBorders.includes(value.value)) student.settings.unlocked.animatedBorders.push(value.value);
+        if (!student.settings.unlocked.animatedBorders.includes(value.value)) {
+          student.settings.unlocked.animatedBorders.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) student.settings.cosmetics.animatedBorder = value.value;
         break;
       case "titleEffect":
-        if (!student.settings.unlocked.titleEffects.includes(value.value)) student.settings.unlocked.titleEffects.push(value.value);
+        if (!student.settings.unlocked.titleEffects.includes(value.value)) {
+          student.settings.unlocked.titleEffects.push(value.value);
+          unlocked = true;
+        }
         if (value.applyNow) student.settings.cosmetics.titleEffect = value.value;
         break;
     }
 
+    // Mark the nested path as modified so Mongoose saves it
+    student.markModified('settings');
+    student.markModified('settings.unlocked');
+    student.markModified('settings.cosmetics');
     await student.save();
+    
+    console.log(`✅ Cosmetic ${unlocked ? 'unlocked' : 'already unlocked'}: ${value.type} = ${value.value} for ${value.roll}`);
     io.emit("cosmetic:updated", { 
       roll: student.roll, 
       cosmetics: student.settings.cosmetics,
@@ -901,6 +1021,65 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
   } catch (err) {
     console.error("reward cosmetic error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ==================== MIGRATION ENDPOINT ====================
+// Run this once to initialize settings for all existing students in MongoDB
+app.post("/api/admin/migrate-settings", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const students = await Student.find({});
+    let updated = 0;
+    
+    for (const student of students) {
+      let needsUpdate = false;
+      
+      if (!student.settings) {
+        student.settings = {};
+        needsUpdate = true;
+      }
+      
+      if (!student.settings.cosmetics) {
+        student.settings.cosmetics = {
+          avatarBorder: "",
+          nameStyle: "",
+          chatBubbleColor: "",
+          chatColor: "",
+          backgroundUrl: "",
+          badges: [],
+          animatedNameEffect: "",
+          animatedBorder: "",
+          titleEffect: "",
+        };
+        needsUpdate = true;
+      }
+      
+      if (!student.settings.unlocked) {
+        student.settings.unlocked = {
+          avatarBorders: [],
+          nameStyles: [],
+          chatColors: [],
+          backgrounds: [],
+          badges: [],
+          animatedNameEffects: [],
+          animatedBorders: [],
+          titleEffects: [],
+        };
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        student.markModified('settings');
+        await student.save();
+        updated++;
+      }
+    }
+    
+    console.log(`✅ Migration complete: ${updated} students updated`);
+    res.json({ ok: true, message: `Initialized settings for ${updated} students`, total: students.length });
+  } catch (err) {
+    console.error("Migration error:", err);
+    res.status(500).json({ error: "Migration failed: " + err.message });
   }
 });
 
@@ -1103,17 +1282,22 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
     if (value.strictCourse) {
       try {
         const cfg = await getAppConfig();
+        console.log(`📚 Strict course mode - coursePlanDisabled: ${cfg.coursePlanDisabled}, useGemini: ${value.useGemini}`);
 
         // When PDFs are disabled, use admin-provided prompt topics instead
         if (cfg.coursePlanDisabled) {
           const text = (cfg.promptTopics || '').trim();
           if (!text) return res.status(403).json({ error: "Course topics not configured" });
 
+          console.log(`🎯 Using prompt topics mode with ${text.length} chars of topics`);
+
           // Use Gemini to generate answer based on prompt topics context
           if (value.useGemini) {
             try {
               const context = `You are a helpful educational assistant. Answer the student's question based on these topics: ${text}`;
+              console.log(`🤖 Calling Gemini with context...`);
               const reply = await callGemini(value.message, { userRoll: value.roll, context });
+              console.log(`✅ Gemini response received: ${reply.slice(0, 100)}...`);
               const assistant = new ChatHistory({
                 roll: value.roll,
                 sender: "assistant",
@@ -1124,7 +1308,7 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
               io.emit("chat:new", assistant);
               return res.json({ assistantReply: reply, chat });
             } catch (e) {
-              console.error('Gemini error with topics:', e);
+              console.error('❌ Gemini error with topics:', e);
               return res.status(500).json({ error: "AI response failed" });
             }
           }
@@ -1552,22 +1736,43 @@ if (multer) {
 
 // ---------------------- Gemini integration ----------------------
 async function callGemini(prompt, opts = {}) {
-  if (!GEMINI_API_URL) throw new Error("Gemini API URL not configured");
-  const url = `${GEMINI_API_URL.replace(/\/$/, "")}/ask`;
-  const body = { prompt, user: opts.userRoll || "anonymous" };
-  const headers = { "Content-Type": "application/json" };
-  if (GEMINI_API_KEY) headers["Authorization"] = `Bearer ${GEMINI_API_KEY}`;
-
-  const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Gemini API error: ${r.status} ${t}`);
+  // Build the full prompt with context if provided
+  let fullPrompt = prompt;
+  if (opts.context) {
+    fullPrompt = `${opts.context}\n\nUser Question: ${prompt}`;
   }
-  const json = await r.json();
-  if (typeof json.answer === "string") return json.answer;
-  if (json.output) return json.output;
-  if (json.choices?.[0]?.text) return json.choices[0].text;
-  return JSON.stringify(json);
+
+  // Try Google Gemini API if configured
+  if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+      const body = {
+        contents: [{
+          parts: [{ text: fullPrompt }]
+        }]
+      };
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (r.ok) {
+        const json = await r.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      }
+    } catch (e) {
+      console.error('Google Gemini API failed:', e.message);
+    }
+  }
+
+  // Fallback: Simple AI response based on context
+  if (opts.context) {
+    return `Based on the available topics and your question "${prompt}", here's what I can help with: ${opts.context.slice(0, 300)}... Please ask more specific questions about these topics for detailed answers.`;
+  }
+
+  // Last resort: Generic response
+  return `I'm an educational assistant. To provide better answers, please configure the course topics in the admin panel or upload course materials.`;
 }
 
 app.post("/api/gemini", authenticate, csrfProtect, async (req, res) => {

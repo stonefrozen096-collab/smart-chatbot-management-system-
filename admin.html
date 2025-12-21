@@ -474,6 +474,17 @@
     <div id="rewards" class="section">
         <h2>🎁 Rewards & Achievements</h2>
         
+        <div class="card" style="background:#fef3c7;border-left:4px solid #f59e0b;">
+            <h3>⚙️ Database Migration</h3>
+            <p style="margin-bottom:10px;">
+                <strong>Important:</strong> Run this once to initialize cosmetics storage for all existing students in MongoDB.
+            </p>
+            <button onclick="migrateSettings()" style="background:#f59e0b;">
+                🔄 Initialize Cosmetics Schema for All Students
+            </button>
+            <p id="migrationStatus" style="font-size:12px;margin-top:8px;opacity:0.8;"></p>
+        </div>
+        
         <div class="card">
             <h3>Send Reward/Achievement</h3>
             <input type="text" id="rewardRecipient" placeholder="Student roll number">

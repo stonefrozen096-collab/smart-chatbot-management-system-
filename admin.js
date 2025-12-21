@@ -3,8 +3,13 @@
    Fixed: Lock/Unlock, Warnings, Messages, Rewards, QR Codes, Dark Mode
 ========================================================================== */
 
-// Use same-origin API so admin panel follows deployed backend host
-const API = "";
+// API base: allow runtime override for separate frontend/backend on Render
+const API = (() => {
+  try {
+    const qp = new URLSearchParams(window.location.search).get('api');
+    return qp || localStorage.getItem('api_base') || (window.__API_BASE__ || 'https://smart-chatbot-backend-w5tq.onrender.com');
+  } catch { return 'https://smart-chatbot-backend-w5tq.onrender.com'; }
+})();
 let csrfToken = "";
 let allStudents = [];
 let darkMode = localStorage.getItem('adminDarkMode') === 'true';
@@ -410,6 +415,37 @@ async function grantCosmetic(type, value, applyNow = true) {
   } else {
     const t = await res?.text();
     alert('❌ Failed to grant cosmetic: ' + t);
+  }
+}
+
+async function migrateSettings() {
+  const statusEl = document.getElementById('migrationStatus');
+  if (!confirm('This will initialize cosmetics storage for ALL students in your MongoDB database. Continue?')) return;
+  
+  statusEl.textContent = '⏳ Running migration...';
+  statusEl.style.color = '#f59e0b';
+  
+  try {
+    const res = await secureFetch(`${API}/api/admin/migrate-settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (res && res.ok) {
+      const data = await res.json();
+      statusEl.textContent = `✅ ${data.message}`;
+      statusEl.style.color = '#10b981';
+      alert(`✅ Migration successful!\n\n${data.message}\n\nCosmetics will now unlock properly for all students.`);
+    } else {
+      const err = await res?.text();
+      statusEl.textContent = `❌ Migration failed: ${err}`;
+      statusEl.style.color = '#ef4444';
+      alert('❌ Migration failed. Check console for details.');
+    }
+  } catch (e) {
+    statusEl.textContent = `❌ Error: ${e.message}`;
+    statusEl.style.color = '#ef4444';
+    console.error('Migration error:', e);
   }
 }
 
