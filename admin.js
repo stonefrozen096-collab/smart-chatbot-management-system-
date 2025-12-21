@@ -323,14 +323,34 @@ async function loadNotices() {
   
   notices.forEach(n => {
     const div = document.createElement('div');
-    div.style.cssText = 'background:rgba(59,130,246,0.2);padding:10px;margin:5px 0;border-radius:8px;';
+    div.style.cssText = 'background:rgba(59,130,246,0.2);padding:10px;margin:5px 0;border-radius:8px;display:flex;justify-content:space-between;align-items:start;gap:10px;';
     div.innerHTML = `
-      <strong>${n.urgent ? '🔴 ' : ''}${escapeHTML(n.title)}</strong><br>
-      <span style="opacity:0.9;">${escapeHTML(n.body || '')}</span><br>
-      <span style="opacity:0.7;font-size:11px;">${new Date(n.createdAt).toLocaleString()}</span>
+      <div style="flex:1;">
+        <strong>${n.urgent ? '🔴 ' : ''}${escapeHTML(n.title)}</strong><br>
+        <span style="opacity:0.9;">${escapeHTML(n.body || '')}</span><br>
+        <span style="opacity:0.7;font-size:11px;">${new Date(n.createdAt).toLocaleString()}</span>
+      </div>
+      <button onclick="deleteNotice('${n._id}')" style="background:#dc2626;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:12px;">🗑️ Delete</button>
     `;
     container.appendChild(div);
   });
+}
+
+async function deleteNotice(noticeId) {
+  if (!confirm('Are you sure you want to delete this notice?')) return;
+  
+  const res = await secureFetch(`${API}/api/admin/notice/${noticeId}`, {
+    method: 'DELETE'
+  });
+  
+  if (!res) return;
+  if (res.ok) {
+    alert('✅ Notice deleted');
+    loadNotices();
+  } else {
+    const err = await res.json().catch(() => ({}));
+    alert('❌ Failed to delete notice: ' + (err.error || 'Unknown error'));
+  }
 }
 
 //===============================================
@@ -987,8 +1007,68 @@ function closeStudentDetailModal() {
 }
 
 //===============================================
-// 11. INITIALIZATION
+// 10. HC CURRENCY MANAGEMENT
 //===============================================
+async function grantHCToStudent() {
+  const roll = document.getElementById('hcRecipient')?.value.trim();
+  const amount = parseInt(document.getElementById('hcAmount')?.value) || 0;
+  const statusEl = document.getElementById('hcGrantStatus');
+  
+  if (!roll || !amount || amount <= 0) {
+    if (statusEl) statusEl.textContent = '❌ Enter a valid roll and amount';
+    return;
+  }
+  
+  const res = await secureFetch(`${API}/api/admin/grant-hc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll, amount })
+  });
+  
+  if (!res) return;
+  
+  if (res.ok) {
+    const data = await res.json();
+    if (statusEl) statusEl.textContent = `✅ ${data.message} (New balance: ${data.hc} HC)`;
+    document.getElementById('hcAmount').value = '';
+    document.getElementById('hcRecipient').value = '';
+  } else {
+    const err = await res.json().catch(() => ({}));
+    if (statusEl) statusEl.textContent = `❌ ${err.error || 'Failed to grant HC'}`;
+  }
+}
+
+async function broadcastHCToAll() {
+  const amount = parseInt(document.getElementById('broadcastHCAmount')?.value) || 0;
+  const statusEl = document.getElementById('broadcastStatus');
+  
+  if (!amount || amount <= 0) {
+    if (statusEl) statusEl.textContent = '❌ Enter a valid amount';
+    return;
+  }
+  
+  if (!confirm(`Are you sure you want to give ${amount} HC to ALL students? This cannot be undone.`)) {
+    return;
+  }
+  
+  const res = await secureFetch(`${API}/api/admin/broadcast-hc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount })
+  });
+  
+  if (!res) return;
+  
+  if (res.ok) {
+    const data = await res.json();
+    if (statusEl) statusEl.textContent = `✅ ${data.message}`;
+    document.getElementById('broadcastHCAmount').value = '';
+  } else {
+    const err = await res.json().catch(() => ({}));
+    if (statusEl) statusEl.textContent = `❌ ${err.error || 'Failed to broadcast HC'}`;
+  }
+}
+
 async function initAdmin() {
   const token = getToken();
   if (!token) {

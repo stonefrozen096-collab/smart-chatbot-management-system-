@@ -249,6 +249,14 @@
           <button class="btn ghost small" onclick="openCosmeticsModal()" style="background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:#fff;">✨ Cosmetics</button>
         </div>
 
+        <!-- Virtual Pet Display -->
+        <div id="petContainer" style="margin-top:16px;padding:14px;background:rgba(0,0,0,0.2);border-radius:12px;border-left:4px solid #22d3ee;display:none;">
+          <div style="font-size:13px;color:#22d3ee;font-weight:600;margin-bottom:8px;">🐉 Your Pet</div>
+          <div id="petGreeting" style="font-size:14px;font-weight:500;margin-bottom:8px;min-height:20px;">Hello! 👋</div>
+          <div id="petAvatar" style="font-size:64px;text-align:center;margin:8px 0;line-height:1;">🐉</div>
+          <div id="petName" style="text-align:center;font-size:12px;color:rgba(255,255,255,0.9);margin-top:6px;">Dragon Companion</div>
+        </div>
+
         <div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.9)">
           <div>Last login: <span id="lastLogin">—</span></div>
           <div>Profile completeness: <strong id="profilePct">—</strong></div>
@@ -762,6 +770,56 @@
     }catch(e){ console.warn('applyCosmetics failed', e); }
   }
 
+  // ---------- VIRTUAL PET SYSTEM ----------
+  async function loadAndDisplayPet(settings) {
+    try {
+      // Check if student has a virtual pet unlocked
+      const unlocked = (settings?.unlocked?.virtualPets) || [];
+      const equipped = settings?.cosmetics?.virtualPet || null;
+      
+      if (!equipped || !unlocked.includes(equipped)) {
+        document.getElementById('petContainer').style.display = 'none';
+        return;
+      }
+
+      // Show pet container
+      document.getElementById('petContainer').style.display = 'block';
+
+      // Fetch greeting
+      const res = await fetch(`${API}/api/pet/greeting`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const { greeting, mood, hour } = await res.json();
+
+      // Update pet display
+      const petMap = {
+        'dragon-pet': { emoji: '🐉', name: 'Dragon Companion' },
+        'phoenix-pet': { emoji: '🔥🐦', name: 'Phoenix Ally' },
+        'unicorn-pet': { emoji: '🦄', name: 'Unicorn Spirit' },
+        'wolf-pet': { emoji: '🐺', name: 'Shadow Wolf' },
+        'fairy-pet': { emoji: '🧚', name: 'Magic Fairy' }
+      };
+
+      const pet = petMap[equipped] || { emoji: '🐉', name: 'Pet' };
+      
+      document.getElementById('petGreeting').textContent = greeting;
+      document.getElementById('petAvatar').textContent = pet.emoji;
+      document.getElementById('petName').textContent = pet.name;
+
+      // Add animation based on mood
+      const petAvatar = document.getElementById('petAvatar');
+      petAvatar.style.animation = '';
+      if (mood === 'energetic') {
+        petAvatar.style.animation = 'cosmetic-spin 1.5s infinite';
+      } else if (mood === 'sleepy') {
+        petAvatar.style.animation = 'cosmetic-shimmer 2s infinite';
+      } else if (mood === 'calm') {
+        petAvatar.style.animation = 'cosmetic-pulse 2s infinite';
+      }
+    } catch (e) {
+      console.warn('Pet display failed:', e);
+    }
+  }
+
   // ---------- COSMETIC ANIMATIONS INJECTOR ----------
   function injectCosmeticAnimations() {
     if (document.getElementById('cosmetic-animations')) return;
@@ -880,6 +938,7 @@
       }
 
       applyCosmetics(data.settings);
+      loadAndDisplayPet(data.settings);
       renderWarningsFromProfile(data);
       return data;
     } catch (err) {
@@ -1223,6 +1282,13 @@
       { value:'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1200', label:'Transcendent Cosmos (TRANSCENDENT)', tier:'transcendent' },
       { value:'https://images.unsplash.com/photo-1484589065579-248aad0d8b13?q=80&w=1200', label:'Transcendent Void (TRANSCENDENT)', tier:'transcendent' },
       { value:'https://images.unsplash.com/photo-1545243424-0ce743321e11?q=80&w=1200', label:'Transcendent Dimension (TRANSCENDENT)', tier:'transcendent' }
+    ],
+    virtualPets: [
+      { value:'dragon-pet', label:'Dragon Companion (SUPREME)', tier:'supreme', preview:'🐉 Majestic Dragon', price: 9999 },
+      { value:'phoenix-pet', label:'Phoenix Ally (SUPREME)', tier:'supreme', preview:'🔥🐦 Eternal Phoenix', price: 9999 },
+      { value:'unicorn-pet', label:'Unicorn Spirit (SUPREME)', tier:'supreme', preview:'🦄 Mythical Unicorn', price: 9999 },
+      { value:'wolf-pet', label:'Shadow Wolf (SUPREME)', tier:'supreme', preview:'🐺 Dark Guardian', price: 9999 },
+      { value:'fairy-pet', label:'Magic Fairy (SUPREME)', tier:'supreme', preview:'🧚 Ethereal Fairy', price: 9999 }
     ]
   };
 
@@ -1264,6 +1330,7 @@
     else if (type === 'titleEffects') body.cosmetics.titleEffect = value;
     else if (type === 'chatColors') { body.cosmetics.chatColor = value; body.cosmetics.chatBubbleColor = value; }
     else if (type === 'backgrounds') body.cosmetics.backgroundUrl = value;
+    else if (type === 'virtualPets') body.cosmetics.virtualPet = value;
 
     try {
       const res = await fetch(`${API}/api/me/settings`, { method:'PATCH', headers: authHeaders(), body: JSON.stringify(body) });
@@ -1272,6 +1339,9 @@
       currentProfile = data;
       renderCosmetics();
       applyCosmetics(currentProfile.settings);
+      if (type === 'virtualPets') {
+        loadAndDisplayPet(currentProfile.settings);
+      }
       alert('✅ Cosmetic equipped!');
     } catch (e) {
       alert('❌ Failed to equip cosmetic');
@@ -1282,6 +1352,18 @@
   function renderCosmetics() {
     const container = document.getElementById('cosmeticsContainer');
     let html = '';
+    const hc = currentProfile?.hc || 0;
+
+    // Add shop section at top
+    html += `
+      <div style="background:linear-gradient(135deg, rgba(34,211,238,0.2), rgba(6,182,212,0.15)); border:2px solid #22d3ee; border-radius:12px; padding:16px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="margin:0; color:#22d3ee; display:flex; align-items:center; gap:8px;">🛍️ HC Shop</h3>
+          <div style="background:rgba(34,211,238,0.3); padding:8px 12px; border-radius:8px; font-weight:600; color:#22d3ee;">HC Balance: ${hc}</div>
+        </div>
+        <p style="margin:0; font-size:13px; color:rgba(255,255,255,0.8);">Purchase cosmetics with HC. Items unlock in cosmetics modal after purchase.</p>
+      </div>
+    `;
 
     for (const [type, items] of Object.entries(COSMETICS_CATALOG)) {
       const typeLabel = type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
@@ -1292,17 +1374,26 @@
         const equipped = currentEquippedCosmetic(type) === item.value;
         const tierClass = item.tier || 'rare';
         const tierBadge = `<span class="tier-badge ${tierClass}">${item.tier}</span>`;
+        
+        // Virtual pets can be purchased with HC
+        const canBuyShop = item.price && !unlocked;
+        const shopButton = canBuyShop 
+          ? `<button class="equip-btn" style="background:#22d3ee; color:#000;" onclick="buyCosmeticShop('${type}', '${item.value}', ${item.price})">🛒 Buy for ${item.price} HC</button>`
+          : '';
 
         html += `
           <div class="cosmetic-card ${tierClass} ${equipped ? 'equipped' : ''}">
-            ${!unlocked ? '<div class="lock-overlay">🔒</div>' : ''}
+            ${!unlocked && !canBuyShop ? '<div class="lock-overlay">🔒</div>' : ''}
             <h4>${item.label} ${tierBadge}</h4>
             <div class="cosmetic-preview">${item.preview || item.label}</div>
-            <button class="equip-btn ${equipped ? 'equipped' : ''}" 
-                    onclick="equipCosmeticItem('${type}', '${item.value}')" 
-                    ${!unlocked || equipped ? 'disabled' : ''}>
-              ${equipped ? '✅ Equipped' : (unlocked ? 'Equip' : '🔒 Locked')}
-            </button>
+            ${shopButton || `
+              <button class="equip-btn ${equipped ? 'equipped' : ''}" 
+                      onclick="equipCosmeticItem('${type}', '${item.value}')" 
+                      ${!unlocked || equipped ? 'disabled' : ''}>
+                ${equipped ? '✅ Equipped' : (unlocked ? 'Equip' : '🔒 Locked')}
+              </button>
+            `}
+            ${unlocked && !equipped ? `<button class="equip-btn" style="background:#f87171; margin-top:6px;" onclick="removeCosmeticItem('${type}')">Remove</button>` : ''}
           </div>
         `;
       });
@@ -1311,6 +1402,47 @@
     }
 
     container.innerHTML = html;
+  }
+
+  async function buyCosmeticShop(type, value, price) {
+    try {
+      const res = await fetch(`${API}/api/shop/buy`, { 
+        method:'POST', 
+        headers: authHeaders(), 
+        body: JSON.stringify({ type, value, price })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert('❌ ' + (err.error || 'Purchase failed'));
+        return;
+      }
+      const data = await res.json();
+      currentProfile = data; // Update with new HC balance and unlocked items
+      renderCosmetics();
+      alert(`✅ ${data.message}`);
+    } catch (e) {
+      alert('❌ Failed to purchase cosmetic');
+      console.error(e);
+    }
+  }
+
+  async function removeCosmeticItem(type) {
+    try {
+      const res = await fetch(`${API}/api/me/cosmetic/remove`, { 
+        method:'POST', 
+        headers: authHeaders(), 
+        body: JSON.stringify({ type })
+      });
+      if (!res.ok) throw new Error('Failed to remove');
+      const data = await res.json();
+      currentProfile.settings.cosmetics = data.cosmetics;
+      renderCosmetics();
+      applyCosmetics(currentProfile.settings);
+      alert('✅ Cosmetic removed!');
+    } catch (e) {
+      alert('❌ Failed to remove cosmetic');
+      console.error(e);
+    }
   }
 
   // Settings button click handler

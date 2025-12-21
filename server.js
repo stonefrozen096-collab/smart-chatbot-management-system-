@@ -138,6 +138,7 @@ const studentSchema = new Schema(
     chatbotLocked: { type: Boolean, default: false },
     chatbotLockedUntil: { type: Date, default: null },
     chatbotLockReason: { type: String, default: "" },
+    hc: { type: Number, default: 0 }, // HC currency for shop purchases
     verified: { type: Boolean, default: false },
     verifiedBadge: {
       isActive: { type: Boolean, default: false },
@@ -836,6 +837,34 @@ app.get("/api/me", authenticate, csrfProtect, async (req, res) => {
   }
 });
 
+// Get pet greeting (time-aware)
+app.get("/api/pet/greeting", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const hour = new Date().getHours();
+    let greeting = "Hello!";
+    let mood = "neutral";
+
+    if (hour >= 6 && hour < 12) {
+      greeting = "Good morning! ☀️";
+      mood = "energetic";
+    } else if (hour >= 12 && hour < 17) {
+      greeting = "Good afternoon! 🌤️";
+      mood = "cheerful";
+    } else if (hour >= 17 && hour < 21) {
+      greeting = "Good evening! 🌅";
+      mood = "calm";
+    } else {
+      greeting = "Good night! 🌙";
+      mood = "sleepy";
+    }
+
+    res.json({ greeting, mood, hour });
+  } catch (err) {
+    console.error("get greeting error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 app.post("/api/bgcolor", authenticate, csrfProtect, async (req, res) => {
   try {
     const { roll, bgColor } = req.body;
@@ -871,6 +900,7 @@ app.patch("/api/me/settings", authenticate, csrfProtect, async (req, res) => {
         animatedNameEffect: Joi.string().allow("", null).optional(),
         animatedBorder: Joi.string().allow("", null).optional(),
         titleEffect: Joi.string().allow("", null).optional(),
+        virtualPet: Joi.string().allow("", null).optional(),
       }).optional(),
     });
     const { error, value } = schema.validate(req.body);
@@ -913,7 +943,8 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
         "badge",
         "animatedNameEffect",
         "animatedBorder",
-        "titleEffect"
+        "titleEffect",
+        "virtualPets"
       ).required(),
       value: Joi.string().required(),
       applyNow: Joi.boolean().default(true),
@@ -933,6 +964,7 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     if (!student.settings.unlocked.nameStyles) student.settings.unlocked.nameStyles = [];
     if (!student.settings.unlocked.chatColors) student.settings.unlocked.chatColors = [];
     if (!student.settings.unlocked.backgrounds) student.settings.unlocked.backgrounds = [];
+    if (!student.settings.unlocked.virtualPets) student.settings.unlocked.virtualPets = [];
     if (!student.settings.unlocked.badges) student.settings.unlocked.badges = [];
     if (!student.settings.unlocked.animatedNameEffects) student.settings.unlocked.animatedNameEffects = [];
     if (!student.settings.unlocked.animatedBorders) student.settings.unlocked.animatedBorders = [];
@@ -1027,6 +1059,192 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     });
   } catch (err) {
     console.error("❌ reward cosmetic error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// ==================== HC CURRENCY SYSTEM ====================
+// Grant HC currency to student
+app.post("/api/admin/grant-hc", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      roll: Joi.string().required(),
+      amount: Joi.number().min(1).required(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll: value.roll });
+    if (!student) return res.status(404).json({ error: `Student '${value.roll}' not found.` });
+
+    student.hc = (student.hc || 0) + value.amount;
+    await student.save();
+
+    io.emit("hc:updated", { roll: student.roll, hc: student.hc });
+    res.json({ ok: true, message: `Granted ${value.amount} HC to ${value.roll}`, hc: student.hc });
+  } catch (err) {
+    console.error("❌ grant HC error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Broadcast HC to all students
+app.post("/api/admin/broadcast-hc", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      amount: Joi.number().min(1).required(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const result = await Student.updateMany({}, { $inc: { hc: value.amount } });
+    
+    io.emit("hc:broadcast", { amount: value.amount });
+    res.json({ ok: true, message: `Broadcast ${value.amount} HC to all ${result.modifiedCount} students`, updated: result.modifiedCount });
+  } catch (err) {
+    console.error("❌ broadcast HC error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// ==================== COSMETIC SHOP ====================
+// Purchase cosmetic from shop
+app.post("/api/shop/buy", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const roll = req.student.roll;
+    const schema = Joi.object({
+      type: Joi.string().required(),
+      value: Joi.string().required(),
+      price: Joi.number().min(1).required(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    // Check if student has enough HC
+    if ((student.hc || 0) < value.price) {
+      return res.status(400).json({ error: `Not enough HC. You have ${student.hc || 0}, need ${value.price}` });
+    }
+
+    // Initialize cosmetics storage
+    student.settings = student.settings || {};
+    student.settings.unlocked = student.settings.unlocked || {};
+    
+    // Ensure unlocked arrays exist for all types
+    if (!student.settings.unlocked[value.type]) {
+      student.settings.unlocked[value.type] = [];
+    }
+
+    // Check if already unlocked
+    if (Array.isArray(student.settings.unlocked[value.type]) && student.settings.unlocked[value.type].includes(value.value)) {
+      return res.status(400).json({ error: "Already unlocked. Go to cosmetics modal to equip." });
+    }
+
+    // Deduct HC and add to unlocked
+    student.hc -= value.price;
+    student.settings.unlocked[value.type].push(value.value);
+    student.markModified('settings');
+    student.markModified('settings.unlocked');
+
+    await student.save();
+
+    io.emit("cosmetic:updated", { 
+      roll: student.roll, 
+      cosmetics: student.settings.cosmetics,
+      unlocked: student.settings.unlocked,
+      hc: student.hc
+    });
+
+    res.json({ 
+      ok: true, 
+      message: `Purchased ${value.value}! HC remaining: ${student.hc}`,
+      hc: student.hc,
+      unlocked: student.settings.unlocked
+    });
+  } catch (err) {
+    console.error("❌ shop purchase error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// ==================== COSMETIC REMOVAL ====================
+// Remove/unequip cosmetic (student)
+app.post("/api/me/cosmetic/remove", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    const schema = Joi.object({
+      type: Joi.string().required(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    student.settings = student.settings || {};
+    student.settings.cosmetics = student.settings.cosmetics || {};
+
+    // Clear the cosmetic
+    if (value.type === 'avatarBorders') student.settings.cosmetics.avatarBorder = '';
+    else if (value.type === 'nameStyles') student.settings.cosmetics.nameStyle = '';
+    else if (value.type === 'animatedNameEffects') student.settings.cosmetics.animatedNameEffect = '';
+    else if (value.type === 'animatedBorders') student.settings.cosmetics.animatedBorder = '';
+    else if (value.type === 'titleEffects') student.settings.cosmetics.titleEffect = '';
+    else if (value.type === 'chatColors') {
+      student.settings.cosmetics.chatColor = '';
+      student.settings.cosmetics.chatBubbleColor = '';
+    }
+    else if (value.type === 'backgrounds') student.settings.cosmetics.backgroundUrl = '';
+
+    student.markModified('settings');
+    await student.save();
+
+    io.emit("cosmetic:updated", { roll: student.roll, cosmetics: student.settings.cosmetics });
+
+    res.json({ ok: true, message: `Removed ${value.type}`, cosmetics: student.settings.cosmetics });
+  } catch (err) {
+    console.error("❌ remove cosmetic error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Admin: Force remove cosmetic from student
+app.post("/api/admin/cosmetic/remove", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      roll: Joi.string().required(),
+      type: Joi.string().required(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll: value.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    student.settings = student.settings || {};
+    student.settings.cosmetics = student.settings.cosmetics || {};
+
+    // Clear the cosmetic
+    if (value.type === 'avatarBorders') student.settings.cosmetics.avatarBorder = '';
+    else if (value.type === 'nameStyles') student.settings.cosmetics.nameStyle = '';
+    else if (value.type === 'animatedNameEffects') student.settings.cosmetics.animatedNameEffect = '';
+    else if (value.type === 'animatedBorders') student.settings.cosmetics.animatedBorder = '';
+    else if (value.type === 'titleEffects') student.settings.cosmetics.titleEffect = '';
+    else if (value.type === 'chatColors') {
+      student.settings.cosmetics.chatColor = '';
+      student.settings.cosmetics.chatBubbleColor = '';
+    }
+    else if (value.type === 'backgrounds') student.settings.cosmetics.backgroundUrl = '';
+
+    student.markModified('settings');
+    await student.save();
+
+    io.emit("cosmetic:updated", { roll: student.roll, cosmetics: student.settings.cosmetics });
+
+    res.json({ ok: true, message: `Removed ${value.type} from ${value.roll}`, cosmetics: student.settings.cosmetics });
+  } catch (err) {
+    console.error("❌ admin remove cosmetic error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
@@ -1586,6 +1804,39 @@ app.post("/api/warning", authenticate, requireAdmin, csrfProtect, async (req, re
       const durationMs = 12 * 3600 * 1000; // 12 hours
       student.chatbotLockedUntil = new Date(Date.now() + durationMs);
       student.chatbotLockReason = value.reason || "High violation";
+
+      // Auto-remove premium cosmetics on high violation
+      student.settings = student.settings || {};
+      student.settings.cosmetics = student.settings.cosmetics || {};
+
+      const removedCosmetics = [];
+      if (student.settings.cosmetics.animatedNameEffect) {
+        removedCosmetics.push(`Animated Name: ${student.settings.cosmetics.animatedNameEffect}`);
+        student.settings.cosmetics.animatedNameEffect = '';
+      }
+      if (student.settings.cosmetics.animatedBorder) {
+        removedCosmetics.push(`Animated Border: ${student.settings.cosmetics.animatedBorder}`);
+        student.settings.cosmetics.animatedBorder = '';
+      }
+      if (student.settings.cosmetics.titleEffect) {
+        removedCosmetics.push(`Title Effect: ${student.settings.cosmetics.titleEffect}`);
+        student.settings.cosmetics.titleEffect = '';
+      }
+      if (student.settings.cosmetics.chatColor) {
+        removedCosmetics.push('Chat Color');
+        student.settings.cosmetics.chatColor = '';
+        student.settings.cosmetics.chatBubbleColor = '';
+      }
+      
+      if (removedCosmetics.length > 0) {
+        student.markModified('settings.cosmetics');
+        io.emit("cosmetic:removed-violation", { 
+          roll: student.roll, 
+          cosmetics: student.settings.cosmetics,
+          removed: removedCosmetics,
+          reason: "High violation issued"
+        });
+      }
     }
 
     if (student.warningsCount >= 3) {
@@ -1742,6 +1993,20 @@ app.post("/api/admin/notice", authenticate, requireAdmin, csrfProtect, async (re
     res.json({ ok: true, notice: n });
   } catch (err) {
     console.error("create notice error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: delete notice
+app.delete("/api/admin/notice/:id", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const notice = await Notice.findByIdAndDelete(req.params.id);
+    if (!notice) return res.status(404).json({ error: "Notice not found" });
+    
+    io.emit("notice:deleted", { id: req.params.id });
+    res.json({ ok: true, message: "Notice deleted" });
+  } catch (err) {
+    console.error("delete notice error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
