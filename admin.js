@@ -292,7 +292,7 @@ async function createNotice() {
   const res = await secureFetch(`${API}/api/admin/notice`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, content: body, urgent })
+    body: JSON.stringify({ title, body, urgent })
   });
   
   if (res && res.ok) {
@@ -326,7 +326,7 @@ async function loadNotices() {
     div.style.cssText = 'background:rgba(59,130,246,0.2);padding:10px;margin:5px 0;border-radius:8px;';
     div.innerHTML = `
       <strong>${n.urgent ? '🔴 ' : ''}${escapeHTML(n.title)}</strong><br>
-      <span style="opacity:0.9;">${escapeHTML(n.content)}</span><br>
+      <span style="opacity:0.9;">${escapeHTML(n.body || '')}</span><br>
       <span style="opacity:0.7;font-size:11px;">${new Date(n.createdAt).toLocaleString()}</span>
     `;
     container.appendChild(div);

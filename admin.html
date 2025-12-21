@@ -494,7 +494,7 @@
               <button onclick="debugStudentSettings()" style="background:#4f46e5;">🔍 Run Debug</button>
               <button onclick="document.getElementById('debugOutput').textContent='';" style="background:#64748b;">🧹 Clear</button>
             </div>
-            <pre id="debugOutput" style="margin-top:10px;padding:10px;background:#fff;border:1px solid #e5e7eb;overflow:auto;max-height:220px;white-space:pre-wrap;"></pre>
+            <pre id="debugOutput" style="margin-top:10px;padding:10px;background:#fff;border:1px solid #e5e7eb;overflow:auto;max-height:220px;white-space:pre-wrap;color:#000;"></pre>
         </div>
         
         <div class="card">
@@ -590,6 +590,94 @@
                     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
                         <button onclick="grantVerifiedBadge()" style="background:#059669;">🎖️ Grant Verified Badge</button>
                         <button onclick="removeVerifiedBadge(document.getElementById('rewardRecipient')?.value)" style="background:#dc2626;">❌ Remove Verified Badge</button>
+                    </div>
+
+                    <h3 style="margin-top:24px;font-size:18px;">🌊 MYTHIC Tier (Superior to Legendary & Eternal)</h3>
+                    <p style="opacity:0.9;color:#22d3ee;font-weight:600;">Enhanced power with superior animations and multiple effects!</p>
+                    
+                    <h4 style="margin-top:12px;color:#22d3ee;">✨ Mythic Avatar Borders</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('avatarBorder','starlight-veil')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">✨ Starlight Veil</button>
+                        <button onclick="grantCosmetic('avatarBorder','azure-phoenix')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🐦‍🔥 Azure Phoenix</button>
+                        <button onclick="grantCosmetic('avatarBorder','crystal-fortress')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💎 Crystal Fortress</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#22d3ee;">✨ Mythic Name Styles</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('nameStyle','starlight-flare')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">✨ Starlight Flare</button>
+                        <button onclick="grantCosmetic('nameStyle','plasma-core')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">⚡ Plasma Core</button>
+                        <button onclick="grantCosmetic('nameStyle','crystal-radiance')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💎 Crystal Radiance</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#22d3ee;">✨ Mythic Animated Effects</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('animatedNameEffect','stardust-flow')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🪐 Stardust Flow</button>
+                        <button onclick="grantCosmetic('animatedNameEffect','cosmic-storm')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">⚡🌌 Cosmic Storm</button>
+                        <button onclick="grantCosmetic('animatedNameEffect','crystal-cascade')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💎 Crystal Cascade</button>
+                        <button onclick="grantCosmetic('animatedBorder','nebula-surge')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🌌 Nebula Surge</button>
+                        <button onclick="grantCosmetic('animatedBorder','plasma-ring')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">⚡💫 Plasma Ring</button>
+                        <button onclick="grantCosmetic('animatedBorder','crystal-orbit')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💎 Crystal Orbit</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#22d3ee;">✨ Mythic Title Effects & Colors</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('titleEffect','sacred-sigil')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🔱 Sacred Sigil</button>
+                        <button onclick="grantCosmetic('titleEffect','titan-helm')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">⚔️ Titan Helm</button>
+                        <button onclick="grantCosmetic('titleEffect','oracle-vision')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">👁️ Oracle Vision</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#22d3ee')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💬 Mythic Cyan</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#06b6d4')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💬 Mythic Teal</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#0891b2')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">💬 Mythic Deep Cyan</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#22d3ee;">✨ Mythic Backgrounds</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1200')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🖼️ Mythic Horizon</button>
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1464802686167-b939a6910659?q=80&w=1200')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🖼️ Mythic Storm</button>
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1200')" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);box-shadow:0 0 15px rgba(34,211,238,0.5);">🖼️ Mythic Peaks</button>
+                    </div>
+
+                    <h3 style="margin-top:30px;font-size:20px;">🌌 TRANSCENDENT Tier (Ultimate Highest Tier)</h3>
+                    <p style="opacity:1;color:#7c3aed;font-weight:700;font-size:15px;">THE ULTIMATE TIER - Reality-bending powers with the most impressive effects!</p>
+                    
+                    <h4 style="margin-top:12px;color:#7c3aed;">🌌 Transcendent Avatar Borders</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('avatarBorder','prismatic-shield')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🌈 Prismatic Shield</button>
+                        <button onclick="grantCosmetic('avatarBorder','eternal-flames')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🔥💫 Eternal Flames</button>
+                        <button onclick="grantCosmetic('avatarBorder','void-emperor')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">👑🌌 Void Emperor</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#7c3aed;">🌌 Transcendent Name Styles</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('nameStyle','aurora-burst')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🌌 Aurora Burst</button>
+                        <button onclick="grantCosmetic('nameStyle','divine-script')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">✨☀️ Divine Script</button>
+                        <button onclick="grantCosmetic('nameStyle','reality-bender')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🌀💫 Reality Bender</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#7c3aed;">🌌 Transcendent Animated Effects</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('animatedNameEffect','time-warp')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">⏳ Time Warp</button>
+                        <button onclick="grantCosmetic('animatedNameEffect','dimension-rift')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🌀✨ Dimension Rift</button>
+                        <button onclick="grantCosmetic('animatedNameEffect','infinity-spiral')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">♾️ Infinity Spiral</button>
+                        <button onclick="grantCosmetic('animatedBorder','singularity')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🕳️ Singularity</button>
+                        <button onclick="grantCosmetic('animatedBorder','supernova')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">💥🌟 Supernova</button>
+                        <button onclick="grantCosmetic('animatedBorder','universe-edge')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🌌✨ Universe Edge</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#7c3aed;">🌌 Transcendent Title Effects & Colors</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('titleEffect','celestial-ring')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🪐 Celestial Ring</button>
+                        <button onclick="grantCosmetic('titleEffect','omniscient')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">✨👁️✨ Omniscient</button>
+                        <button onclick="grantCosmetic('titleEffect','reality-weaver')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🌀💫 Reality Weaver</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#7c3aed')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">💬 Transcendent Violet</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#5b21b6')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">💬 Deep Purple</button>
+                        <button onclick="grantCosmetic('chatBubbleColor','#4c1d95')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">💬 Ultra Violet</button>
+                    </div>
+                    
+                    <h4 style="margin-top:12px;color:#7c3aed;">🌌 Transcendent Backgrounds</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1200')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🖼️ Transcendent Cosmos</button>
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1484589065579-248aad0d8b13?q=80&w=1200')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🖼️ Transcendent Void</button>
+                        <button onclick="grantCosmetic('backgroundUrl','https://images.unsplash.com/photo-1545243424-0ce743321e11?q=80&w=1200')" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 0 25px rgba(124,58,237,0.7);font-weight:700;">🖼️ Transcendent Dimension</button>
                     </div>
                 </div>
     </div>

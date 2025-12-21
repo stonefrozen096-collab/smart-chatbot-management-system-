@@ -171,13 +171,21 @@
   .cosmetic-card.legendary { border-color:#fbbf24; background:linear-gradient(135deg, rgba(251,191,36,0.15), rgba(217,119,6,0.15)); }
   .cosmetic-card.eternal { border-color:#a78bfa; background:linear-gradient(135deg, rgba(167,139,250,0.15), rgba(139,92,246,0.15)); box-shadow:0 0 20px rgba(167,139,250,0.3); }
   .cosmetic-card.rare { border-color:#60a5fa; }
+  .cosmetic-card.mythic { border-color:#22d3ee; border-width:3px; background:linear-gradient(135deg, rgba(34,211,238,0.25), rgba(14,165,233,0.2)); box-shadow:0 0 30px rgba(34,211,238,0.5), 0 0 60px rgba(34,211,238,0.2); animation:mythic-card-glow 3s infinite; }
+  .cosmetic-card.transcendent { border-color:#7c3aed; border-width:4px; background:linear-gradient(135deg, rgba(124,58,237,0.3), rgba(67,56,202,0.25)); box-shadow:0 0 40px rgba(124,58,237,0.7), 0 0 80px rgba(124,58,237,0.4), 0 0 120px rgba(124,58,237,0.2); animation:transcendent-card-glow 2.5s infinite; }
+  @keyframes mythic-card-glow { 0%, 100% { box-shadow:0 0 30px rgba(34,211,238,0.5), 0 0 60px rgba(34,211,238,0.2); } 50% { box-shadow:0 0 45px rgba(34,211,238,0.8), 0 0 90px rgba(34,211,238,0.4); } }
+  @keyframes transcendent-card-glow { 0%, 100% { box-shadow:0 0 40px rgba(124,58,237,0.7), 0 0 80px rgba(124,58,237,0.4), 0 0 120px rgba(124,58,237,0.2); } 50% { box-shadow:0 0 60px rgba(124,58,237,1), 0 0 120px rgba(124,58,237,0.6), 0 0 180px rgba(124,58,237,0.3); } }
   .cosmetic-card.equipped { border-color:#10b981; box-shadow:0 0 15px rgba(16,185,129,0.4); }
   .cosmetic-card h4 { margin:0 0 8px; font-size:15px; display:flex; align-items:center; gap:6px; }
   .tier-badge { display:inline-block; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:700; text-transform:uppercase; }
   .tier-badge.legendary { background:#fbbf24; color:#000; }
   .tier-badge.eternal { background:#a78bfa; color:#000; animation:eternal-glow 2s infinite; }
   .tier-badge.rare { background:#60a5fa; color:#000; }
+  .tier-badge.mythic { background:linear-gradient(135deg,#22d3ee,#06b6d4); color:#000; animation:mythic-pulse 1.8s infinite; font-weight:900; }
+  .tier-badge.transcendent { background:linear-gradient(135deg,#7c3aed,#5b21b6); color:#fff; animation:transcendent-glow 1.5s infinite; font-weight:900; text-shadow:0 0 8px rgba(255,255,255,0.8); }
   @keyframes eternal-glow { 0%, 100% { box-shadow:0 0 10px rgba(167,139,250,0.8); } 50% { box-shadow:0 0 20px rgba(167,139,250,1); } }
+  @keyframes mythic-pulse { 0%, 100% { box-shadow:0 0 15px rgba(34,211,238,1), 0 0 30px rgba(34,211,238,0.6); transform:scale(1); } 50% { box-shadow:0 0 25px rgba(34,211,238,1), 0 0 50px rgba(34,211,238,0.8); transform:scale(1.05); } }
+  @keyframes transcendent-glow { 0%, 100% { box-shadow:0 0 20px rgba(124,58,237,1), 0 0 40px rgba(124,58,237,0.8); transform:scale(1) rotate(0deg); } 50% { box-shadow:0 0 35px rgba(124,58,237,1), 0 0 70px rgba(124,58,237,1), 0 0 100px rgba(124,58,237,0.6); transform:scale(1.08) rotate(2deg); } }
   .cosmetic-preview { margin:10px 0; padding:10px; border-radius:8px; background:rgba(0,0,0,0.2); text-align:center; font-size:13px; }
   .equip-btn { width:100%; padding:10px; border:none; border-radius:8px; font-weight:600; cursor:pointer; background:#3b82f6; color:#fff; margin-top:8px; transition:0.3s; }
   .equip-btn:hover { background:#60a5fa; transform:translateY(-2px); }
@@ -452,6 +460,9 @@
       if (av) {
         av.style.boxShadow = '';
         av.style.border = '';
+        av.style.animation = '';
+        
+        // Rare borders
         if (cos.avatarBorder === 'glow-blue') {
           av.style.boxShadow = '0 0 12px rgba(59,130,246,0.8), 0 0 28px rgba(59,130,246,0.4)';
           av.style.border = '2px solid rgba(59,130,246,0.7)';
@@ -462,11 +473,70 @@
           av.style.boxShadow = '0 0 14px rgba(236,72,153,0.9)';
           av.style.border = '2px solid #ec4899';
         }
-        // Animated borders
+        // Legendary borders
+        else if (cos.avatarBorder === 'dragon-fire') {
+          av.style.boxShadow = '0 0 20px rgba(251,191,36,1), 0 0 40px rgba(234,179,8,0.8)';
+          av.style.border = '3px solid #fbbf24';
+        }
+        // Eternal borders
+        else if (cos.avatarBorder === 'celestial-aura') {
+          av.style.boxShadow = '0 0 25px rgba(167,139,250,1), 0 0 50px rgba(139,92,246,0.8)';
+          av.style.border = '3px solid #a78bfa';
+        }
+        // MYTHIC borders - Enhanced power
+        else if (cos.avatarBorder === 'starlight-veil') {
+          av.style.boxShadow = '0 0 30px rgba(34,211,238,1), 0 0 60px rgba(34,211,238,0.8), 0 0 90px rgba(34,211,238,0.5)';
+          av.style.border = '4px solid #22d3ee';
+          av.style.animation = 'mythic-avatar-glow 2s infinite';
+        } else if (cos.avatarBorder === 'azure-phoenix') {
+          av.style.boxShadow = '0 0 35px rgba(6,182,212,1), 0 0 70px rgba(34,211,238,0.9)';
+          av.style.border = '4px solid #06b6d4';
+          av.style.animation = 'mythic-avatar-glow 2s infinite';
+        } else if (cos.avatarBorder === 'crystal-fortress') {
+          av.style.boxShadow = '0 0 32px rgba(8,145,178,1), 0 0 64px rgba(34,211,238,0.7)';
+          av.style.border = '4px solid #0891b2';
+          av.style.animation = 'mythic-avatar-glow 2s infinite';
+        }
+        // TRANSCENDENT borders - Ultimate power
+        else if (cos.avatarBorder === 'prismatic-shield') {
+          av.style.boxShadow = '0 0 40px rgba(124,58,237,1), 0 0 80px rgba(124,58,237,1), 0 0 120px rgba(124,58,237,0.8)';
+          av.style.border = '5px solid #7c3aed';
+          av.style.animation = 'transcendent-avatar-glow 2s infinite';
+        } else if (cos.avatarBorder === 'eternal-flames') {
+          av.style.boxShadow = '0 0 45px rgba(91,33,182,1), 0 0 90px rgba(124,58,237,1), 0 0 135px rgba(124,58,237,0.8)';
+          av.style.border = '5px solid #5b21b6';
+          av.style.animation = 'transcendent-avatar-glow 2s infinite';
+        } else if (cos.avatarBorder === 'void-emperor') {
+          av.style.boxShadow = '0 0 50px rgba(76,29,149,1), 0 0 100px rgba(124,58,237,1), 0 0 150px rgba(124,58,237,0.9)';
+          av.style.border = '5px solid #4c1d95';
+          av.style.animation = 'transcendent-avatar-glow 2s infinite';
+        }
+        
+        // Animated borders (can stack with static borders)
         if (cos.animatedBorder === 'pulse-glow') {
           av.style.animation = 'cosmetic-pulse 1.5s infinite';
         } else if (cos.animatedBorder === 'rainbow-spin') {
           av.style.animation = 'cosmetic-spin 3s infinite';
+        } else if (cos.animatedBorder === 'lightning-strike') {
+          av.style.animation = 'cosmetic-pulse 0.8s infinite';
+        } else if (cos.animatedBorder === 'quantum-field') {
+          av.style.animation = 'cosmetic-spin 2s infinite';
+        }
+        // MYTHIC animated borders
+        else if (cos.animatedBorder === 'nebula-surge') {
+          av.style.animation = 'mythic-avatar-glow 1.8s infinite';
+        } else if (cos.animatedBorder === 'plasma-ring') {
+          av.style.animation = 'mythic-avatar-glow 1.5s infinite';
+        } else if (cos.animatedBorder === 'crystal-orbit') {
+          av.style.animation = 'mythic-avatar-glow 2s infinite';
+        }
+        // TRANSCENDENT animated borders
+        else if (cos.animatedBorder === 'singularity') {
+          av.style.animation = 'transcendent-avatar-glow 1.5s infinite';
+        } else if (cos.animatedBorder === 'supernova') {
+          av.style.animation = 'transcendent-avatar-glow 1.2s infinite';
+        } else if (cos.animatedBorder === 'universe-edge') {
+          av.style.animation = 'transcendent-avatar-glow 1.8s infinite';
         }
       }
       // Name style
@@ -477,6 +547,8 @@
         displayName.style.backgroundClip = '';
         displayName.style.color = '';
         displayName.style.animation = '';
+        
+        // Rare styles
         if (cos.nameStyle === 'gradient-gold') {
           displayName.style.background = 'linear-gradient(90deg,#f59e0b,#fde68a)';
           displayName.style.webkitBackgroundClip = 'text';
@@ -485,11 +557,88 @@
         } else if (cos.nameStyle === 'neon') {
           displayName.style.textShadow = '0 0 6px rgba(59,130,246,0.9), 0 0 12px rgba(59,130,246,0.6)';
         }
+        // Legendary styles
+        else if (cos.nameStyle === 'diamond-shine') {
+          displayName.style.background = 'linear-gradient(90deg,#fbbf24,#fde68a,#fbbf24)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.textShadow = '0 0 10px rgba(251,191,36,0.8)';
+        }
+        // Eternal styles
+        else if (cos.nameStyle === 'cosmic-energy') {
+          displayName.style.background = 'linear-gradient(90deg,#a78bfa,#c4b5fd,#a78bfa)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.textShadow = '0 0 12px rgba(167,139,250,0.9)';
+        }
+        // MYTHIC styles - Enhanced power
+        else if (cos.nameStyle === 'starlight-flare') {
+          displayName.style.background = 'linear-gradient(90deg,#22d3ee,#06b6d4,#22d3ee)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.animation = 'mythic-name-effect 2s infinite';
+        } else if (cos.nameStyle === 'plasma-core') {
+          displayName.style.background = 'linear-gradient(90deg,#06b6d4,#0891b2,#06b6d4)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.animation = 'mythic-name-effect 2s infinite';
+        } else if (cos.nameStyle === 'crystal-radiance') {
+          displayName.style.background = 'linear-gradient(90deg,#0891b2,#22d3ee,#0891b2)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.animation = 'mythic-name-effect 2s infinite';
+        }
+        // TRANSCENDENT styles - Ultimate power
+        else if (cos.nameStyle === 'aurora-burst') {
+          displayName.style.background = 'linear-gradient(90deg,#7c3aed,#5b21b6,#7c3aed)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.animation = 'transcendent-name-effect 2s infinite';
+        } else if (cos.nameStyle === 'divine-script') {
+          displayName.style.background = 'linear-gradient(90deg,#5b21b6,#4c1d95,#5b21b6)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.animation = 'transcendent-name-effect 2s infinite';
+        } else if (cos.nameStyle === 'reality-bender') {
+          displayName.style.background = 'linear-gradient(90deg,#4c1d95,#7c3aed,#4c1d95)';
+          displayName.style.webkitBackgroundClip = 'text';
+          displayName.style.backgroundClip = 'text';
+          displayName.style.color = 'transparent';
+          displayName.style.animation = 'transcendent-name-effect 2s infinite';
+        }
+        
         // Animated name effects
         if (cos.animatedNameEffect === 'rainbow-wave') {
           displayName.style.animation = 'cosmetic-rainbow 2s infinite';
         } else if (cos.animatedNameEffect === 'shimmer') {
           displayName.style.animation = 'cosmetic-shimmer 1.5s infinite';
+        } else if (cos.animatedNameEffect === 'phoenix-blaze') {
+          displayName.style.animation = 'cosmetic-rainbow 1.5s infinite';
+        } else if (cos.animatedNameEffect === 'void-pulse') {
+          displayName.style.animation = 'cosmetic-shimmer 1.2s infinite';
+        }
+        // MYTHIC animated effects
+        else if (cos.animatedNameEffect === 'stardust-flow') {
+          displayName.style.animation = 'mythic-name-effect 1.8s infinite';
+        } else if (cos.animatedNameEffect === 'cosmic-storm') {
+          displayName.style.animation = 'mythic-name-effect 1.5s infinite';
+        } else if (cos.animatedNameEffect === 'crystal-cascade') {
+          displayName.style.animation = 'mythic-name-effect 2s infinite';
+        }
+        // TRANSCENDENT animated effects
+        else if (cos.animatedNameEffect === 'time-warp') {
+          displayName.style.animation = 'transcendent-name-effect 2s infinite';
+        } else if (cos.animatedNameEffect === 'dimension-rift') {
+          displayName.style.animation = 'transcendent-name-effect 1.8s infinite';
+        } else if (cos.animatedNameEffect === 'infinity-spiral') {
+          displayName.style.animation = 'transcendent-name-effect 1.5s infinite';
         }
       }
       // Badges under name
@@ -511,10 +660,97 @@
           badgeBar.appendChild(pill);
         });
       }
-      // Verified badge
+      
+      // Title effects - decorative elements
+      if (displayName && cos.titleEffect) {
+        const existingTitle = displayName.querySelector('.title-effect-decoration');
+        if (existingTitle) existingTitle.remove();
+        
+        const titleDecor = document.createElement('span');
+        titleDecor.className = 'title-effect-decoration';
+        titleDecor.style.marginLeft = '8px';
+        titleDecor.style.display = 'inline-block';
+        titleDecor.style.verticalAlign = 'middle';
+        
+        // Rare titles
+        if (cos.titleEffect === 'crown') {
+          titleDecor.textContent = '👑';
+          titleDecor.style.fontSize = '18px';
+        } else if (cos.titleEffect === 'halo') {
+          titleDecor.textContent = '⭐';
+          titleDecor.style.fontSize = '16px';
+        }
+        // Legendary titles
+        else if (cos.titleEffect === 'emperor-crown') {
+          titleDecor.textContent = '👑✨';
+          titleDecor.style.fontSize = '20px';
+          titleDecor.style.filter = 'drop-shadow(0 0 4px rgba(251,191,36,0.8))';
+        }
+        // Eternal titles
+        else if (cos.titleEffect === 'god-mode') {
+          titleDecor.textContent = '☀️';
+          titleDecor.style.fontSize = '20px';
+          titleDecor.style.filter = 'drop-shadow(0 0 6px rgba(167,139,250,0.9))';
+          titleDecor.style.animation = 'cosmetic-shimmer 2s infinite';
+        }
+        // MYTHIC titles
+        else if (cos.titleEffect === 'sacred-sigil') {
+          titleDecor.textContent = '🔱';
+          titleDecor.style.fontSize = '22px';
+          titleDecor.style.filter = 'drop-shadow(0 0 8px rgba(34,211,238,1))';
+          titleDecor.style.animation = 'mythic-name-effect 2s infinite';
+        } else if (cos.titleEffect === 'titan-helm') {
+          titleDecor.textContent = '⚔️';
+          titleDecor.style.fontSize = '22px';
+          titleDecor.style.filter = 'drop-shadow(0 0 8px rgba(34,211,238,1))';
+          titleDecor.style.animation = 'mythic-name-effect 2s infinite';
+        } else if (cos.titleEffect === 'oracle-vision') {
+          titleDecor.textContent = '👁️';
+          titleDecor.style.fontSize = '22px';
+          titleDecor.style.filter = 'drop-shadow(0 0 8px rgba(34,211,238,1))';
+          titleDecor.style.animation = 'mythic-name-effect 2s infinite';
+        }
+        // TRANSCENDENT titles
+        else if (cos.titleEffect === 'celestial-ring') {
+          titleDecor.textContent = '🪐';
+          titleDecor.style.fontSize = '24px';
+          titleDecor.style.filter = 'drop-shadow(0 0 12px rgba(124,58,237,1)) drop-shadow(0 0 24px rgba(124,58,237,0.8))';
+          titleDecor.style.animation = 'transcendent-name-effect 2s infinite';
+        } else if (cos.titleEffect === 'omniscient') {
+          titleDecor.textContent = '✨👁️✨';
+          titleDecor.style.fontSize = '24px';
+          titleDecor.style.filter = 'drop-shadow(0 0 12px rgba(124,58,237,1)) drop-shadow(0 0 24px rgba(124,58,237,0.8))';
+          titleDecor.style.animation = 'transcendent-name-effect 2s infinite';
+        } else if (cos.titleEffect === 'reality-weaver') {
+          titleDecor.textContent = '🌀💫';
+          titleDecor.style.fontSize = '24px';
+          titleDecor.style.filter = 'drop-shadow(0 0 12px rgba(124,58,237,1)) drop-shadow(0 0 24px rgba(124,58,237,0.8))';
+          titleDecor.style.animation = 'transcendent-name-effect 2s infinite';
+        }
+        
+        if (titleDecor.textContent) {
+          displayName.appendChild(titleDecor);
+        }
+      }
+      
+      // Verified badge inline next to name
       const verifiedEl = document.getElementById('verifiedBadge');
       if (verifiedEl) {
-        verifiedEl.style.display = (settings?.verified) ? 'block' : 'none';
+        // Hide separate container; render inline on the name
+        verifiedEl.style.display = 'none';
+      }
+      if (displayName) {
+        const existingInline = displayName.querySelector('.inline-verified-badge');
+        if (existingInline) existingInline.remove();
+        if (settings?.verified) {
+          const span = document.createElement('span');
+          span.className = 'inline-verified-badge';
+          span.style.display = 'inline-block';
+          span.style.verticalAlign = 'middle';
+          span.style.marginLeft = '6px';
+          span.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;margin-bottom:2px;"><circle cx="12" cy="12" r="11" fill="#fff" stroke="#0f172a" stroke-width="1.5" /><path d="M8.5 12.5l2.2 2.2 4.8-5.4" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+          displayName.appendChild(span);
+        }
       }
       // Chat color alias (unused for student page visuals but kept for consistency)
       const chatColor = cos.chatColor || cos.chatBubbleColor || '';
@@ -538,6 +774,29 @@
       }
       @keyframes cosmetic-spin {
         from { transform: rotate(0deg); filter: hue-rotate(0deg); }
+        to { transform: rotate(360deg); filter: hue-rotate(360deg); }
+      }
+      @keyframes mythic-avatar-glow {
+        0%, 100% { box-shadow: 0 0 20px rgba(34,211,238,1), 0 0 40px rgba(34,211,238,0.8), 0 0 60px rgba(34,211,238,0.6); transform: scale(1); }
+        50% { box-shadow: 0 0 30px rgba(34,211,238,1), 0 0 60px rgba(34,211,238,1), 0 0 90px rgba(34,211,238,0.8); transform: scale(1.05); }
+      }
+      @keyframes transcendent-avatar-glow {
+        0%, 100% { box-shadow: 0 0 30px rgba(124,58,237,1), 0 0 60px rgba(124,58,237,1), 0 0 90px rgba(124,58,237,0.8), 0 0 120px rgba(124,58,237,0.6); transform: scale(1) rotate(0deg); }
+        50% { box-shadow: 0 0 50px rgba(124,58,237,1), 0 0 100px rgba(124,58,237,1), 0 0 150px rgba(124,58,237,0.9), 0 0 200px rgba(124,58,237,0.7); transform: scale(1.08) rotate(5deg); }
+      }
+      @keyframes mythic-name-effect {
+        0%, 100% { text-shadow: 0 0 10px rgba(34,211,238,1), 0 0 20px rgba(34,211,238,0.8), 0 0 30px rgba(34,211,238,0.6); filter: brightness(1); }
+        50% { text-shadow: 0 0 20px rgba(34,211,238,1), 0 0 40px rgba(34,211,238,1), 0 0 60px rgba(34,211,238,0.9); filter: brightness(1.2); }
+      }
+      @keyframes transcendent-name-effect {
+        0% { text-shadow: 0 0 15px rgba(124,58,237,1), 0 0 30px rgba(124,58,237,1), 0 0 45px rgba(124,58,237,0.8); transform: translateY(0px); }
+        25% { text-shadow: 0 0 25px rgba(124,58,237,1), 0 0 50px rgba(124,58,237,1), 0 0 75px rgba(124,58,237,1); transform: translateY(-2px); }
+        50% { text-shadow: 0 0 35px rgba(124,58,237,1), 0 0 70px rgba(124,58,237,1), 0 0 105px rgba(255,255,255,0.8); transform: translateY(-3px) scale(1.03); }
+        75% { text-shadow: 0 0 25px rgba(124,58,237,1), 0 0 50px rgba(124,58,237,1), 0 0 75px rgba(124,58,237,1); transform: translateY(-2px); }
+        100% { text-shadow: 0 0 15px rgba(124,58,237,1), 0 0 30px rgba(124,58,237,1), 0 0 45px rgba(124,58,237,0.8); transform: translateY(0px); }
+      }
+      @keyframes cosmetic-rainbow {
+        from { filter: hue-rotate(0deg); }
         to { transform: rotate(360deg); filter: hue-rotate(360deg); }
       }
       @keyframes cosmetic-rainbow {
@@ -788,6 +1047,7 @@
       });
       socket.on('verified:updated', (d)=> { if(d.roll===userRoll) fetchProfile(); });
       socket.on('coursePlan:updated', ()=> fetchNotices());
+      socket.on('notice:new', ()=> fetchNotices());
       socket.on('chat:new', (chat)=> { if(chat.roll===userRoll) fetchChatHistoryAndUsage(); });
     }
   } catch(err){ console.warn('socket.io not available', err); }
@@ -875,38 +1135,68 @@
   `;
   document.body.appendChild(cosmeticsModal);
 
-  // Cosmetics catalog with legendary & eternal tiers
+  // Cosmetics catalog with progressive tier system (higher tiers include all lower items + exclusives)
   const COSMETICS_CATALOG = {
     avatarBorders: [
       { value:'glow-blue', label:'Glow Blue', tier:'rare', preview:'🔵 Blue Glow' },
       { value:'gold', label:'Gold Border', tier:'rare', preview:'🟡 Gold' },
       { value:'neon-pink', label:'Neon Pink', tier:'rare', preview:'🌸 Pink' },
       { value:'dragon-fire', label:'Dragon Fire', tier:'legendary', preview:'🔥 Animated Fire' },
-      { value:'celestial-aura', label:'Celestial Aura', tier:'eternal', preview:'⭐ Galaxy Aura' }
+      { value:'celestial-aura', label:'Celestial Aura', tier:'eternal', preview:'⭐ Galaxy Aura' },
+      { value:'starlight-veil', label:'Starlight Veil (MYTHIC)', tier:'mythic', preview:'✨ Mythic Starlight Aura' },
+      { value:'azure-phoenix', label:'Azure Phoenix (MYTHIC)', tier:'mythic', preview:'🐦‍🔥 Cyan Phoenix' },
+      { value:'crystal-fortress', label:'Crystal Fortress (MYTHIC)', tier:'mythic', preview:'💎 Crystal Shield' },
+      { value:'prismatic-shield', label:'Prismatic Shield (TRANSCENDENT)', tier:'transcendent', preview:'🌈 Ultimate Prism Shield' },
+      { value:'eternal-flames', label:'Eternal Flames (TRANSCENDENT)', tier:'transcendent', preview:'🔥💫 Infinite Fire' },
+      { value:'void-emperor', label:'Void Emperor (TRANSCENDENT)', tier:'transcendent', preview:'👑🌌 Void Royalty' }
     ],
     nameStyles: [
       { value:'gradient-gold', label:'Gradient Gold', tier:'rare', preview:'Golden Text' },
       { value:'neon', label:'Neon Glow', tier:'rare', preview:'Neon Text' },
       { value:'diamond-shine', label:'Diamond Shine', tier:'legendary', preview:'💎 Shimmering' },
-      { value:'cosmic-energy', label:'Cosmic Energy', tier:'eternal', preview:'🌌 Cosmic' }
+      { value:'cosmic-energy', label:'Cosmic Energy', tier:'eternal', preview:'🌌 Cosmic' },
+      { value:'starlight-flare', label:'Starlight Flare (MYTHIC)', tier:'mythic', preview:'✨ Mythic Flare Text' },
+      { value:'plasma-core', label:'Plasma Core (MYTHIC)', tier:'mythic', preview:'⚡ Plasma Energy' },
+      { value:'crystal-radiance', label:'Crystal Radiance (MYTHIC)', tier:'mythic', preview:'💎 Crystal Light' },
+      { value:'aurora-burst', label:'Aurora Burst (TRANSCENDENT)', tier:'transcendent', preview:'🌌 Ultimate Aurora' },
+      { value:'divine-script', label:'Divine Script (TRANSCENDENT)', tier:'transcendent', preview:'✨☀️ Divine Writing' },
+      { value:'reality-bender', label:'Reality Bender (TRANSCENDENT)', tier:'transcendent', preview:'🌀💫 Reality Shift' }
     ],
     animatedNameEffects: [
       { value:'rainbow-wave', label:'Rainbow Wave', tier:'rare', preview:'🌈 Wave' },
       { value:'shimmer', label:'Shimmer', tier:'rare', preview:'✨ Shimmer' },
       { value:'phoenix-blaze', label:'Phoenix Blaze', tier:'legendary', preview:'🔥 Phoenix' },
-      { value:'void-pulse', label:'Void Pulse', tier:'eternal', preview:'🌀 Void Energy' }
+      { value:'void-pulse', label:'Void Pulse', tier:'eternal', preview:'🌀 Void Energy' },
+      { value:'stardust-flow', label:'Stardust Flow (MYTHIC)', tier:'mythic', preview:'🪐 Mythic Stardust' },
+      { value:'cosmic-storm', label:'Cosmic Storm (MYTHIC)', tier:'mythic', preview:'⚡🌌 Storm Effect' },
+      { value:'crystal-cascade', label:'Crystal Cascade (MYTHIC)', tier:'mythic', preview:'💎 Crystal Rain' },
+      { value:'time-warp', label:'Time Warp (TRANSCENDENT)', tier:'transcendent', preview:'⏳ Ultimate Time Distortion' },
+      { value:'dimension-rift', label:'Dimension Rift (TRANSCENDENT)', tier:'transcendent', preview:'🌀✨ Reality Tear' },
+      { value:'infinity-spiral', label:'Infinity Spiral (TRANSCENDENT)', tier:'transcendent', preview:'♾️ Infinite Loop' }
     ],
     animatedBorders: [
       { value:'pulse-glow', label:'Pulsing Glow', tier:'rare', preview:'🌟 Pulse' },
       { value:'rainbow-spin', label:'Rainbow Spin', tier:'rare', preview:'🎨 Spin' },
       { value:'lightning-strike', label:'Lightning Strike', tier:'legendary', preview:'⚡ Lightning' },
-      { value:'quantum-field', label:'Quantum Field', tier:'eternal', preview:'⚛️ Quantum' }
+      { value:'quantum-field', label:'Quantum Field', tier:'eternal', preview:'⚛️ Quantum' },
+      { value:'nebula-surge', label:'Nebula Surge (MYTHIC)', tier:'mythic', preview:'🌌 Mythic Nebula Wave' },
+      { value:'plasma-ring', label:'Plasma Ring (MYTHIC)', tier:'mythic', preview:'⚡💫 Plasma Circle' },
+      { value:'crystal-orbit', label:'Crystal Orbit (MYTHIC)', tier:'mythic', preview:'💎 Crystal Rotation' },
+      { value:'singularity', label:'Singularity (TRANSCENDENT)', tier:'transcendent', preview:'🕳️ Black Hole Collapse' },
+      { value:'supernova', label:'Supernova (TRANSCENDENT)', tier:'transcendent', preview:'💥🌟 Star Explosion' },
+      { value:'universe-edge', label:'Universe Edge (TRANSCENDENT)', tier:'transcendent', preview:'🌌✨ Cosmic Boundary' }
     ],
     titleEffects: [
       { value:'crown', label:'Crown', tier:'rare', preview:'👑 Royal' },
       { value:'halo', label:'Halo', tier:'rare', preview:'⭐ Holy' },
       { value:'emperor-crown', label:'Emperor Crown', tier:'legendary', preview:'👑✨ Emperor' },
-      { value:'god-mode', label:'God Mode', tier:'eternal', preview:'☀️ Divine' }
+      { value:'god-mode', label:'God Mode', tier:'eternal', preview:'☀️ Divine' },
+      { value:'sacred-sigil', label:'Sacred Sigil (MYTHIC)', tier:'mythic', preview:'🔱 Mythic Sacred Mark' },
+      { value:'titan-helm', label:'Titan Helm (MYTHIC)', tier:'mythic', preview:'⚔️ Titan Warrior' },
+      { value:'oracle-vision', label:'Oracle Vision (MYTHIC)', tier:'mythic', preview:'👁️ All-Seeing' },
+      { value:'celestial-ring', label:'Celestial Ring (TRANSCENDENT)', tier:'transcendent', preview:'🪐 Planetary Crown' },
+      { value:'omniscient', label:'Omniscient (TRANSCENDENT)', tier:'transcendent', preview:'✨👁️✨ All-Knowing' },
+      { value:'reality-weaver', label:'Reality Weaver (TRANSCENDENT)', tier:'transcendent', preview:'🌀💫 Reality Creator' }
     ],
     chatColors: [
       { value:'#60a5fa', label:'Sky Blue', tier:'rare', preview:'#60a5fa' },
@@ -914,13 +1204,25 @@
       { value:'#34d399', label:'Emerald', tier:'rare', preview:'#34d399' },
       { value:'#ec4899', label:'Pink', tier:'rare', preview:'#ec4899' },
       { value:'#fbbf24', label:'Legendary Gold', tier:'legendary', preview:'#fbbf24' },
-      { value:'#a78bfa', label:'Eternal Purple', tier:'eternal', preview:'#a78bfa' }
+      { value:'#a78bfa', label:'Eternal Purple', tier:'eternal', preview:'#a78bfa' },
+      { value:'#22d3ee', label:'Mythic Cyan (MYTHIC)', tier:'mythic', preview:'#22d3ee' },
+      { value:'#06b6d4', label:'Mythic Teal (MYTHIC)', tier:'mythic', preview:'#06b6d4' },
+      { value:'#0891b2', label:'Mythic Deep Cyan (MYTHIC)', tier:'mythic', preview:'#0891b2' },
+      { value:'#7c3aed', label:'Transcendent Violet (TRANSCENDENT)', tier:'transcendent', preview:'#7c3aed' },
+      { value:'#5b21b6', label:'Transcendent Deep Purple (TRANSCENDENT)', tier:'transcendent', preview:'#5b21b6' },
+      { value:'#4c1d95', label:'Transcendent Ultra Violet (TRANSCENDENT)', tier:'transcendent', preview:'#4c1d95' }
     ],
     backgrounds: [
       { value:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200', label:'Aurora', tier:'rare' },
       { value:'https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1200', label:'Mountains', tier:'rare' },
       { value:'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=1200', label:'Starfield', tier:'legendary' },
-      { value:'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=1200', label:'Cosmic Realm', tier:'eternal' }
+      { value:'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=1200', label:'Cosmic Realm', tier:'eternal' },
+      { value:'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1200', label:'Mythic Horizon (MYTHIC)', tier:'mythic' },
+      { value:'https://images.unsplash.com/photo-1464802686167-b939a6910659?q=80&w=1200', label:'Mythic Storm (MYTHIC)', tier:'mythic' },
+      { value:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1200', label:'Mythic Peaks (MYTHIC)', tier:'mythic' },
+      { value:'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1200', label:'Transcendent Cosmos (TRANSCENDENT)', tier:'transcendent' },
+      { value:'https://images.unsplash.com/photo-1484589065579-248aad0d8b13?q=80&w=1200', label:'Transcendent Void (TRANSCENDENT)', tier:'transcendent' },
+      { value:'https://images.unsplash.com/photo-1545243424-0ce743321e11?q=80&w=1200', label:'Transcendent Dimension (TRANSCENDENT)', tier:'transcendent' }
     ]
   };
 
@@ -969,7 +1271,7 @@
       const data = await res.json();
       currentProfile = data;
       renderCosmetics();
-      applyCosmetics();
+      applyCosmetics(currentProfile.settings);
       alert('✅ Cosmetic equipped!');
     } catch (e) {
       alert('❌ Failed to equip cosmetic');

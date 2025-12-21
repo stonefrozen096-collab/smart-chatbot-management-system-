@@ -1581,6 +1581,13 @@ app.post("/api/warning", authenticate, requireAdmin, csrfProtect, async (req, re
     const warning = new Warning({ roll: value.roll, issuerRoll: req.student.roll, reason: value.reason, level: value.level, expiresAt: value.expiresAt });
     await warning.save();
 
+    // Immediate chatbot lock on high violation
+    if (value.level === "high") {
+      const durationMs = 12 * 3600 * 1000; // 12 hours
+      student.chatbotLockedUntil = new Date(Date.now() + durationMs);
+      student.chatbotLockReason = value.reason || "High violation";
+    }
+
     if (student.warningsCount >= 3) {
       student.lockedUntil = new Date(Date.now() + 24 * 3600 * 1000);
       student.warningsCount = 0;
