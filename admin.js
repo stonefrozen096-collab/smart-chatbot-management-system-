@@ -4,12 +4,8 @@
 ========================================================================== */
 
 // API base: allow runtime override for separate frontend/backend on Render
-const API = (() => {
-  try {
-    const qp = new URLSearchParams(window.location.search).get('api');
-    return qp || localStorage.getItem('api_base') || (window.__API_BASE__ || 'https://smart-chatbot-backend-w5tq.onrender.com');
-  } catch { return 'https://smart-chatbot-backend-w5tq.onrender.com'; }
-})();
+// Hardcoded backend for stable routing on Render
+const API = 'https://smart-chatbot-backend-w5tq.onrender.com';
 let csrfToken = "";
 let allStudents = [];
 let darkMode = localStorage.getItem('adminDarkMode') === 'true';
@@ -450,34 +446,44 @@ async function migrateSettings() {
 }
 
 async function debugStudentSettings() {
-  try {
-    const roll = document.getElementById('rewardRecipient')?.value.trim();
-    if (!roll) return alert('Enter a recipient roll in the Rewards section');
+  const out = document.getElementById('debugOutput');
+  const roll = document.getElementById('rewardRecipient')?.value.trim();
+  if (!roll) {
+    out.textContent = '❌ Enter a recipient roll in the Rewards section';
+    return;
+  }
 
+  out.textContent = `⏳ Loading debug for ${roll}...`;
+
+  try {
     const res = await secureFetch(`${API}/api/admin/debug/student/${encodeURIComponent(roll)}`);
     const data = await res.json();
 
-    const out = document.getElementById('debugOutput');
     if (!res.ok) {
       out.textContent = `❌ Error: ${data.error || 'Unknown error'}`;
+      console.error('Debug response not ok:', res.status, data);
       return;
     }
 
-    // Pretty print important fields
+    // Pretty print all fields
     const display = {
       roll: data.roll,
       hasSettings: data.hasSettings,
       settingsKeys: data.settingsKeys,
-      unlocked: data.unlocked,
-      cosmetics: data.cosmetics,
+      unlockedAvatarBorders: (data.unlocked?.avatarBorders || []).length,
+      unlockedNameStyles: (data.unlocked?.nameStyles || []).length,
+      unlockedChatColors: (data.unlocked?.chatColors || []).length,
+      unlockedBadges: (data.unlocked?.badges || []).length,
+      equippedChatColor: data.cosmetics?.chatBubbleColor || 'none',
       lockedUntil: data.lockedUntil,
       chatbotLockedUntil: data.chatbotLockedUntil,
-      updatedAt: data.updatedAt,
+      lastUpdate: data.updatedAt,
+      _fullUnlocked: data.unlocked,
+      _fullCosmetics: data.cosmetics,
     };
 
-    out.textContent = JSON.stringify(display, null, 2);
+    out.textContent = '✅ Student data loaded:\n\n' + JSON.stringify(display, null, 2);
   } catch (e) {
-    const out = document.getElementById('debugOutput');
     out.textContent = `❌ Exception: ${e.message}`;
     console.error('debugStudentSettings error:', e);
   }

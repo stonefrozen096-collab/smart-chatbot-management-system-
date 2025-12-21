@@ -922,7 +922,7 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     if (error) return res.status(400).json({ error: error.message });
 
     const student = await Student.findOne({ roll: value.roll });
-    if (!student) return res.status(404).json({ error: "Student not found" });
+    if (!student) return res.status(404).json({ error: `Student '${value.roll}' not found. Ensure they have signed up first.` });
 
     student.settings = student.settings || {};
     student.settings.unlocked = student.settings.unlocked || {};
@@ -1009,18 +1009,25 @@ app.post("/api/admin/reward/cosmetic", authenticate, requireAdmin, csrfProtect, 
     student.markModified('settings');
     student.markModified('settings.unlocked');
     student.markModified('settings.cosmetics');
-    await student.save();
+    const saved = await student.save();
     
-    console.log(`✅ Cosmetic ${unlocked ? 'unlocked' : 'already unlocked'}: ${value.type} = ${value.value} for ${value.roll}`);
+    console.log(`✅ Cosmetic ${unlocked ? 'UNLOCKED' : 'already unlocked'}: ${value.type} = ${value.value} for ${value.roll}`);
+    console.log(`📝 Saved student document, current unlocked:`, saved.settings.unlocked);
+    
     io.emit("cosmetic:updated", { 
       roll: student.roll, 
       cosmetics: student.settings.cosmetics,
       unlocked: student.settings.unlocked 
     });
-    res.json({ ok: true, message: `Unlocked ${value.type}: ${value.value}` });
+    res.json({ 
+      ok: true, 
+      message: `Unlocked ${value.type}: ${value.value}`,
+      unlocked: student.settings.unlocked,
+      cosmetics: student.settings.cosmetics
+    });
   } catch (err) {
-    console.error("reward cosmetic error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ reward cosmetic error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
@@ -1228,9 +1235,10 @@ app.delete("/api/course-plan/:id", authenticate, requireAdmin, csrfProtect, asyn
 app.get("/api/admin/debug/student/:roll", authenticate, requireAdmin, csrfProtect, async (req, res) => {
   try {
     const student = await Student.findOne({ roll: req.params.roll });
-    if (!student) return res.status(404).json({ error: "Student not found" });
+    if (!student) return res.status(404).json({ error: `Student '${req.params.roll}' not found in database` });
     res.json({
       roll: student.roll,
+      name: student.name,
       hasSettings: !!student.settings,
       settingsKeys: student.settings ? Object.keys(student.settings) : [],
       unlocked: student.settings?.unlocked || {},
@@ -1238,10 +1246,79 @@ app.get("/api/admin/debug/student/:roll", authenticate, requireAdmin, csrfProtec
       lockedUntil: student.lockedUntil || null,
       chatbotLockedUntil: student.chatbotLockedUntil || null,
       updatedAt: student.updatedAt,
+      createdAt: student.createdAt,
     });
   } catch (err) {
     console.error("admin debug student error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+app.get("/api/admin/debug/students-count", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const total = await Student.countDocuments({});
+    const withUnlocked = await Student.countDocuments({ "settings.unlocked": { $exists: true } });
+    const withCosmetics = await Student.countDocuments({ "settings.cosmetics": { $exists: true } });
+    res.json({ 
+      totalStudents: total,
+      studentsWithUnlocked: withUnlocked,
+      studentsWithCosmetics: withCosmetics
+    });
+  } catch (err) {
+    console.error("students count error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Initialize or fetch student (creates if missing with proper schema)
+app.post("/api/admin/ensure-student", authenticate, requireAdmin, csrfProtect, async (req, res) => {
+  try {
+    const { roll, name } = req.body;
+    if (!roll) return res.status(400).json({ error: "roll required" });
+
+    let student = await Student.findOne({ roll });
+    if (!student) {
+      student = new Student({ 
+        roll, 
+        name: name || `Student ${roll}`,
+        dept: 'TEST',
+        cls: 'TEST',
+        role: 'student',
+        settings: {
+          theme: 'light',
+          notifications: true,
+          safeMode: true,
+          fontSize: 'medium',
+          cosmetics: {
+            avatarBorder: '',
+            nameStyle: '',
+            chatBubbleColor: '',
+            chatColor: '',
+            backgroundUrl: '',
+            badges: [],
+            animatedNameEffect: '',
+            animatedBorder: '',
+            titleEffect: '',
+          },
+          unlocked: {
+            avatarBorders: [],
+            nameStyles: [],
+            chatColors: [],
+            backgrounds: [],
+            badges: [],
+            animatedNameEffects: [],
+            animatedBorders: [],
+            titleEffects: [],
+          }
+        }
+      });
+      await student.save();
+      console.log(`✅ Created student ${roll} with initialized schema`);
+    }
+    res.json({ ok: true, message: `Student ${roll} ready`, student: { roll: student.roll, name: student.name } });
+  } catch (err) {
+    console.error("ensure student error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
@@ -1329,8 +1406,8 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
               io.emit("chat:new", assistant);
               return res.json({ assistantReply: reply, chat });
             } catch (e) {
-              console.error('❌ Gemini error with topics:', e);
-              return res.status(500).json({ error: "AI response failed" });
+              console.warn('⚠️ Gemini error, falling back to topic definitions:', e.message);
+              // Continue to fallback below instead of returning error
             }
           }
 
@@ -1354,7 +1431,7 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
           }
 
           if (!reply) {
-            reply = `Based on your configured topics, please ask more specifically about: ${text.replace(/\n+/g, ' ').trim()}.`;
+            reply = `Based on your configured topics, here's what we cover: ${text.replace(/\n+/g, ' ').trim()}. Please ask a specific question about any of these topics for a detailed answer.`;
           }
 
           const assistant = new ChatHistory({

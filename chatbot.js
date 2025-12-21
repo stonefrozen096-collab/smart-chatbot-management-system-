@@ -1,11 +1,7 @@
 // ==================== CONFIG ====================
 // API base: allow runtime override for separate frontend/backend on Render
-const API_URL = (() => {
-  try {
-    const qp = new URLSearchParams(window.location.search).get('api');
-    return qp || localStorage.getItem('api_base') || (window.__API_BASE__ || 'https://smart-chatbot-backend-w5tq.onrender.com');
-  } catch { return 'https://smart-chatbot-backend-w5tq.onrender.com'; }
-})();
+// Hardcoded backend for stable routing on Render
+const API_URL = 'https://smart-chatbot-backend-w5tq.onrender.com';
 let TOKEN = "";
 let socket = null;
 
