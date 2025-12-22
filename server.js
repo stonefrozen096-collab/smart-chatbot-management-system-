@@ -147,6 +147,7 @@ const studentSchema = new Schema(
       subject: String,
       message: String,
       status: { type: String, enum: ['pending', 'read', 'responded', 'resolved', 'closed'], default: 'pending' },
+      labels: [String],
       adminReply: String,
       createdAt: { type: Date, default: Date.now },
       respondedAt: Date
@@ -386,6 +387,26 @@ const systemMessageSchema = new Schema(
   { timestamps: true }
 );
 const SystemMessage = mongoose.model("SystemMessage", systemMessageSchema);
+
+// RedeemCode model for reward codes
+const redeemCodeSchema = new Schema(
+  {
+    code: { type: String, unique: true, required: true, index: true },
+    reward: {
+      type: { type: String, enum: ['hc', 'cosmetic', 'badge'], required: true },
+      value: String,
+      amount: Number
+    },
+    isPermanent: { type: Boolean, default: false },
+    expiresAt: { type: Date, default: null },
+    usedBy: [{ roll: String, usedAt: Date }],
+    maxUses: { type: Number, default: null },
+    createdBy: String,
+    description: String
+  },
+  { timestamps: true }
+);
+const RedeemCode = mongoose.model("RedeemCode", redeemCodeSchema);
 
 // MessageTemplate model for predefined messages
 const messageTemplateSchema = new Schema(
@@ -668,6 +689,8 @@ app.get("/api/admin/student-messages", authenticate, csrfProtect, async (req, re
           subject: msg.subject,
           message: msg.message,
           status: msg.status,
+          labels: msg.labels || [],
+          adminReply: msg.adminReply,
           createdAt: msg.createdAt
         });
       });
@@ -739,6 +762,167 @@ app.post("/api/admin/student-messages/:msgId/close", authenticate, csrfProtect, 
   } catch (err) {
     console.error("close message error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Admin: Add/remove labels to student message
+app.post("/api/admin/student-messages/:msgId/labels", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    const { labels } = req.body;
+    if (!Array.isArray(labels)) return res.status(400).json({ error: "Labels must be an array" });
+    
+    const result = await Student.findOneAndUpdate(
+      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      { $set: { "messages.$.labels": labels } },
+      { new: true }
+    );
+    if (!result) return res.status(404).json({ error: "Message not found" });
+    res.json({ ok: true, message: "Labels updated" });
+  } catch (err) {
+    console.error("labels update error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// ==================== REDEEM CODES ====================
+// Admin: Generate redeem code
+app.post("/api/admin/redeem-codes/generate", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    
+    const schema = Joi.object({
+      reward: Joi.object({
+        type: Joi.string().valid('hc', 'cosmetic', 'badge').required(),
+        value: Joi.string().optional(),
+        amount: Joi.number().optional()
+      }).required(),
+      isPermanent: Joi.boolean().default(false),
+      expiresInMinutes: Joi.number().optional(),
+      expiresInDays: Joi.number().optional(),
+      maxUses: Joi.number().optional(),
+      description: Joi.string().optional()
+    });
+    
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+    
+    // Generate unique code
+    const code = crypto.randomBytes(6).toString('hex').toUpperCase();
+    
+    let expiresAt = null;
+    if (!value.isPermanent) {
+      if (value.expiresInMinutes) {
+        expiresAt = new Date(Date.now() + value.expiresInMinutes * 60 * 1000);
+      } else if (value.expiresInDays) {
+        expiresAt = new Date(Date.now() + value.expiresInDays * 24 * 60 * 60 * 1000);
+      }
+    }
+    
+    const redeemCode = await RedeemCode.create({
+      code,
+      reward: value.reward,
+      isPermanent: value.isPermanent,
+      expiresAt,
+      maxUses: value.maxUses || null,
+      createdBy: req.student.roll,
+      description: value.description || ''
+    });
+    
+    res.json({ ok: true, code: redeemCode.code, redeemCode });
+  } catch (err) {
+    console.error("generate code error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Student: Redeem code
+app.post("/api/student/redeem-code", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: "Code required" });
+    
+    const redeemCode = await RedeemCode.findOne({ code: code.toUpperCase() });
+    if (!redeemCode) return res.status(404).json({ error: "Invalid code" });
+    
+    // Check expiry
+    if (!redeemCode.isPermanent && redeemCode.expiresAt && new Date() > redeemCode.expiresAt) {
+      return res.status(400).json({ error: "Code expired" });
+    }
+    
+    // Check if already used
+    const alreadyUsed = redeemCode.usedBy.some(u => u.roll === req.student.roll);
+    if (alreadyUsed) return res.status(400).json({ error: "Code already redeemed" });
+    
+    // Check max uses
+    if (redeemCode.maxUses && redeemCode.usedBy.length >= redeemCode.maxUses) {
+      return res.status(400).json({ error: "Code usage limit reached" });
+    }
+    
+    // Grant reward
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    
+    let rewardMessage = '';
+    if (redeemCode.reward.type === 'hc') {
+      student.hc = (student.hc || 0) + (redeemCode.reward.amount || 0);
+      rewardMessage = `${redeemCode.reward.amount} HC granted`;
+    } else if (redeemCode.reward.type === 'cosmetic') {
+      student.settings = student.settings || {};
+      student.settings.unlocked = student.settings.unlocked || {};
+      const category = redeemCode.reward.value.split(':')[0] || 'titleEffects';
+      const value = redeemCode.reward.value.split(':')[1] || redeemCode.reward.value;
+      student.settings.unlocked[category] = student.settings.unlocked[category] || [];
+      if (!student.settings.unlocked[category].includes(value)) {
+        student.settings.unlocked[category].push(value);
+      }
+      rewardMessage = `Cosmetic ${value} unlocked`;
+    } else if (redeemCode.reward.type === 'badge') {
+      student.settings = student.settings || {};
+      student.settings.unlocked = student.settings.unlocked || {};
+      student.settings.unlocked.badges = student.settings.unlocked.badges || [];
+      if (!student.settings.unlocked.badges.includes(redeemCode.reward.value)) {
+        student.settings.unlocked.badges.push(redeemCode.reward.value);
+      }
+      rewardMessage = `Badge ${redeemCode.reward.value} unlocked`;
+    }
+    
+    await student.save();
+    
+    // Mark as used
+    redeemCode.usedBy.push({ roll: req.student.roll, usedAt: new Date() });
+    await redeemCode.save();
+    
+    io.emit("student:code-redeemed", { roll: req.student.roll, reward: redeemCode.reward });
+    
+    res.json({ ok: true, message: rewardMessage, reward: redeemCode.reward });
+  } catch (err) {
+    console.error("redeem code error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Admin: List all redeem codes
+app.get("/api/admin/redeem-codes", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    const codes = await RedeemCode.find().sort({ createdAt: -1 });
+    res.json(codes);
+  } catch (err) {
+    console.error("list codes error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: Delete redeem code
+app.delete("/api/admin/redeem-codes/:codeId", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    await RedeemCode.findByIdAndDelete(req.params.codeId);
+    res.json({ ok: true, message: "Code deleted" });
+  } catch (err) {
+    console.error("delete code error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

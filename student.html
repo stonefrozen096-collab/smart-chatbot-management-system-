@@ -256,6 +256,7 @@
           <button class="btn ghost small" id="openChatBtn">Open Chat</button>
           <button class="btn ghost small" onclick="openCosmeticsModal()" style="background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:#fff;">✨ Cosmetics</button>
           <button class="btn ghost small" onclick="openShopModal()" style="background:linear-gradient(135deg,#22d3ee,#06b6d4);color:#000;font-weight:600;">🛍️ HC Shop</button>
+          <button class="btn ghost small" onclick="openRedeemCodeModal()" style="background:linear-gradient(135deg,#34d399,#10b981);color:#000;font-weight:600;">🎟️ Redeem Code</button>
         </div>
 
         <!-- Virtual Pet Display -->
@@ -803,16 +804,20 @@
   // ---------- VIRTUAL PET SYSTEM ----------
   async function loadAndDisplayPet(settings) {
     try {
+        console.log('[Pet Debug] loadAndDisplayPet called with settings:', settings);
       // Check if student has a virtual pet unlocked
       const unlocked = (settings?.unlocked?.virtualPets) || [];
       const equipped = settings?.cosmetics?.virtualPet || null;
+        console.log('[Pet Debug] Unlocked pets:', unlocked, 'Equipped:', equipped);
       
       if (!equipped || !unlocked.includes(equipped)) {
+          console.log('[Pet Debug] No pet to display (not equipped or not unlocked)');
         document.getElementById('petContainer').style.display = 'none';
         return;
       }
 
       // Show pet container
+        console.log('[Pet Debug] Showing pet container');
       document.getElementById('petContainer').style.display = 'block';
 
       // Fetch greeting
@@ -1215,6 +1220,74 @@
         </div>
       </div>`;
     document.body.appendChild(modal);
+  }
+
+  // ---------- Redeem Code Modal ----------
+  function openRedeemCodeModal(){
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay active';
+    modal.innerHTML = `
+      <div class="modal">
+        <div class="modal-header">
+          <h3>🎟️ Redeem Code</h3>
+          <button class="btn ghost" onclick="this.closest('.modal-overlay').remove()">✖</button>
+        </div>
+        <div class="modal-content">
+          <p style="opacity:0.8;">Enter a redeem code to claim rewards.</p>
+          <input id="redeemCodeInput" placeholder="Enter code (e.g., ABC123)" />
+          <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+            <button onclick="submitRedeemCode()" style="background:#34d399;color:#000;font-weight:600;">Redeem</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
+  async function submitRedeemCode(){
+    try {
+      const overlay = document.querySelector('.modal-overlay.active');
+      const input = document.getElementById('redeemCodeInput');
+      const code = (input?.value || '').trim();
+      if (!code) { alert('Please enter a code'); return; }
+      if (!isCSRFLoaded) await loadCSRF();
+      const res = await fetch(`${API}/api/student/redeem-code`, { method:'POST', headers: authHeaders(), credentials:'include', body: JSON.stringify({ code }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert('❌ ' + (data.error || 'Redeem failed')); return; }
+      
+      // Apply reward locally
+      if (data.reward?.type === 'hc') {
+        currentProfile.hc = (currentProfile.hc || 0) + (data.reward.amount || 0);
+      } else if (data.reward?.type === 'cosmetic') {
+        const parts = (data.reward.value || '').split(':');
+        const category = parts[0] || 'titleEffects';
+        const value = parts[1] || parts[0];
+        currentProfile.settings = currentProfile.settings || {}; 
+        currentProfile.settings.unlocked = currentProfile.settings.unlocked || {};
+        const list = currentProfile.settings.unlocked[category] || [];
+        if (!list.includes(value)) {
+          currentProfile.settings.unlocked[category] = [...list, value];
+        }
+      } else if (data.reward?.type === 'badge') {
+        currentProfile.settings = currentProfile.settings || {}; 
+        currentProfile.settings.unlocked = currentProfile.settings.unlocked || {};
+        const list = currentProfile.settings.unlocked.badges || [];
+        if (!list.includes(data.reward.value)) {
+          currentProfile.settings.unlocked.badges = [...list, data.reward.value];
+        }
+      }
+      
+      // Refresh UI
+      renderShop();
+      renderCosmetics();
+      renderAchievements(currentProfile);
+      applyCosmetics(currentProfile.settings);
+      loadAndDisplayPet(currentProfile.settings);
+      alert('✅ ' + (data.message || 'Code redeemed'));
+      overlay?.remove();
+    } catch (e) {
+      console.error('Redeem error:', e);
+      alert('❌ Network error');
+    }
   }
 
   async function submitStudentAppeal(btn){
@@ -1812,6 +1885,12 @@
 
   async function buyCosmeticShop(type, value, price) {
     try {
+        // Prevent re-purchase of already owned items
+        if (isUnlockedCosmetic(type, value)) {
+          alert('❌ You already own this item!');
+          return;
+        }
+      
       // Ensure CSRF token is loaded
       if (!isCSRFLoaded) {
         await loadCSRF();

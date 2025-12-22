@@ -209,6 +209,7 @@
         <a onclick="showSection('notices')"><i class="fa fa-bell"></i> Notices</a>
         <a onclick="showSection('messaging')"><i class="fa fa-envelope"></i> Messages</a>
         <a onclick="showSection('appeals')"><i class="fa fa-inbox"></i> Student Appeals</a>
+        <a onclick="showSection('redeemCodes')"><i class="fa fa-ticket"></i> Redeem Codes</a>
         <a onclick="showSection('hcCurrency')"><i class="fa fa-coins"></i> HC Currency</a>
         <a onclick="showSection('rewards')"><i class="fa fa-gift"></i> Rewards</a>
         <a onclick="showSection('audit')"><i class="fa fa-history"></i> Audit Logs</a>
@@ -274,6 +275,60 @@
                         </div>
                         <div id="appealsContainer"><p style="opacity:0.6;">Loading appeals...</p></div>
                 </div>
+        
+        <!-- 8c. REDEEM CODES MANAGEMENT -->
+        <div id="redeemCodes" class="section">
+            <h2>🎟️ Redeem Codes</h2>
+            <div class="card">
+                <h3>Generate Code</h3>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+                    <div>
+                        <label>Reward Type</label>
+                        <select id="redeemRewardType">
+                            <option value="hc">HC (Energy)</option>
+                            <option value="cosmetic">Cosmetic</option>
+                            <option value="badge">Badge</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Value (for cosmetic/badge)</label>
+                        <input id="redeemValue" placeholder="e.g., virtualPets:dragon-pet or badge-name" />
+                    </div>
+                    <div>
+                        <label>Amount (for HC)</label>
+                        <input id="redeemAmount" type="number" min="0" placeholder="e.g., 100" />
+                    </div>
+                    <div>
+                        <label>Permanent</label>
+                        <select id="redeemPermanent">
+                            <option value="true">Yes</option>
+                            <option value="false" selected>No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Expires in Minutes</label>
+                        <input id="redeemExpiresMinutes" type="number" min="0" placeholder="e.g., 60" />
+                    </div>
+                    <div>
+                        <label>Expires in Days</label>
+                        <input id="redeemExpiresDays" type="number" min="0" placeholder="e.g., 1" />
+                    </div>
+                    <div>
+                        <label>Max Uses</label>
+                        <input id="redeemMaxUses" type="number" min="1" placeholder="e.g., 100" />
+                    </div>
+                </div>
+                <textarea id="redeemDescription" placeholder="Optional description"></textarea>
+                <div style="display:flex;justify-content:flex-end;gap:10px;">
+                    <button onclick="generateRedeemCode()">Generate Code</button>
+                    <button onclick="loadRedeemCodes()" style="background:#64748b;">Refresh</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Existing Codes</h3>
+                <div id="redeemCodesContainer"><p style="opacity:0.6;">Loading codes...</p></div>
+            </div>
+        </div>
         </div>
 
     <!-- ============================================ -->

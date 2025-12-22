@@ -815,6 +815,19 @@ async function loadAppeals() {
     const div = document.createElement('div');
     div.style.cssText = 'background:rgba(255,255,255,0.08);padding:12px;margin:8px 0;border-radius:10px;';
     const replyBlock = m.adminReply ? `<div style="margin-top:8px;background:rgba(34,197,94,0.2);padding:8px;border-radius:6px;"><strong>Admin Reply:</strong> ${escapeHTML(m.adminReply)}</div>` : '';
+    
+      // Labels UI
+      const labelsHtml = (m.labels || []).map(label => 
+        `<span style="display:inline-block;background:rgba(59,130,246,0.3);padding:2px 8px;border-radius:12px;font-size:11px;margin:2px;">${escapeHTML(label)} <button onclick="removeLabel('${m._id}', '${escapeHTML(label)}')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0 2px;font-weight:bold;">×</button></span>`
+      ).join('');
+      const labelsBlock = `
+        <div style="margin-top:8px;">
+          <strong style="font-size:12px;">Labels:</strong>
+          <div id="labels-${m._id}" style="display:inline-block;">${labelsHtml || '<span style="opacity:0.5;font-size:11px;">No labels</span>'}</div>
+          <button onclick="addLabel('${m._id}')" style="font-size:11px;padding:2px 8px;margin-left:6px;background:rgba(59,130,246,0.5);">+ Add Label</button>
+        </div>
+      `;
+    
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;gap:10px;">
         <div style="flex:1;">
@@ -824,6 +837,7 @@ async function loadAppeals() {
           <div class="badge" style="display:inline-block;margin-left:6px;background:${m.status==='pending'?'rgba(234,179,8,0.25)': m.status==='closed'?'rgba(239,68,68,0.25)':'rgba(34,197,94,0.25)'};padding:2px 8px;border-radius:999px;font-size:12px;">${escapeHTML(m.status || 'pending')}</div>
           <div style="margin-top:6px;font-weight:600;">${escapeHTML(m.subject || '(no subject)')}</div>
           <div style="margin-top:6px;">${escapeHTML(m.message || '')}</div>
+            ${labelsBlock}
           ${replyBlock}
         </div>
         <div>
@@ -840,34 +854,130 @@ async function replyToStudentMessage(messageId) {
   const reply = prompt('Enter reply to student:');
   if (!reply) return;
   const status = confirm('Mark as responded? OK = responded, Cancel = resolved') ? 'responded' : 'resolved';
-  const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/reply`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reply, status })
-  });
-  if (res && res.ok) {
-    alert('✅ Reply sent');
-    loadAppeals();
-  } else {
-    alert('❌ Failed to send reply');
+  try {
+    const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reply, status })
+    });
+    if (res && res.ok) {
+      alert('✅ Reply sent');
+      loadAppeals();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('❌ Failed: ' + (err.error || 'Unknown error'));
+      console.error('Reply failed:', err);
+    }
+  } catch (e) {
+    alert('❌ Network error');
+    console.error('Reply error:', e);
   }
 }
 
 async function closeStudentMessage(messageId) {
   const reason = prompt('Enter reason for closing:');
   if (reason === null) return; // cancelled
-  const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/close`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reason })
-  });
-  if (res && res.ok) {
-    alert('✅ Appeal marked as closed');
-    loadAppeals();
-  } else {
-    alert('❌ Failed to mark closed');
+  try {
+    const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+    if (res && res.ok) {
+      alert('✅ Appeal marked as closed');
+      loadAppeals();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('❌ Failed: ' + (err.error || 'Unknown error'));
+      console.error('Close failed:', err);
+    }
+  } catch (e) {
+    alert('❌ Network error');
+    console.error('Close error:', e);
   }
 }
+
+  async function addLabel(messageId) {
+    const label = prompt('Enter label name:');
+    if (!label) return;
+  
+    try {
+      // Fetch current message to get existing labels
+      const getRes = await secureFetch(`${API}/api/admin/student-messages`);
+      if (!getRes || !getRes.ok) {
+        alert('❌ Failed to fetch current labels');
+        return;
+      }
+      const msgs = await getRes.json();
+      const msg = msgs.find(m => m._id === messageId);
+      if (!msg) {
+        alert('❌ Message not found');
+        return;
+      }
+    
+      const currentLabels = msg.labels || [];
+      if (currentLabels.includes(label)) {
+        alert('❌ Label already exists');
+        return;
+      }
+    
+      const newLabels = [...currentLabels, label];
+    
+      const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/labels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels: newLabels })
+      });
+    
+      if (res && res.ok) {
+        alert('✅ Label added');
+        loadAppeals();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('❌ Failed: ' + (err.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('❌ Network error');
+      console.error('Add label error:', e);
+    }
+  }
+
+  async function removeLabel(messageId, label) {
+    try {
+      // Fetch current message to get existing labels
+      const getRes = await secureFetch(`${API}/api/admin/student-messages`);
+      if (!getRes || !getRes.ok) {
+        alert('❌ Failed to fetch current labels');
+        return;
+      }
+      const msgs = await getRes.json();
+      const msg = msgs.find(m => m._id === messageId);
+      if (!msg) {
+        alert('❌ Message not found');
+        return;
+      }
+    
+      const currentLabels = msg.labels || [];
+      const newLabels = currentLabels.filter(l => l !== label);
+    
+      const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/labels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels: newLabels })
+      });
+    
+      if (res && res.ok) {
+        alert('✅ Label removed');
+        loadAppeals();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('❌ Failed: ' + (err.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('❌ Network error');
+      console.error('Remove label error:', e);
+    }
+  }
 
 //===============================================
 // 9. DASHBOARD STATS
@@ -1118,6 +1228,7 @@ async function initAdmin() {
   await loadCoursePlans();
   await loadTemplates();
   await loadAppeals();
+  await loadRedeemCodes();
   
   showSection('dashboard');
 }
@@ -1155,3 +1266,86 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+//===============================================
+// 9. REDEEM CODES MANAGEMENT
+//===============================================
+async function loadRedeemCodes() {
+  const container = document.getElementById('redeemCodesContainer');
+  if (!container) return;
+  const res = await secureFetch(`${API}/api/admin/redeem-codes`);
+  if (!res || !res.ok) { container.innerHTML = '<p style="opacity:0.7;">Failed to load codes</p>'; return; }
+  const codes = await res.json();
+  if (!Array.isArray(codes) || codes.length === 0) { container.innerHTML = '<p style="opacity:0.7;">No codes</p>'; return; }
+  const rows = codes.map(c => {
+    const exp = c.isPermanent ? 'Permanent' : (c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '—');
+    const uses = (c.usedBy || []).length;
+    const max = c.maxUses || '∞';
+    const rewardStr = c.reward?.type === 'hc' ? `HC +${c.reward.amount}` : `${c.reward?.type}:${c.reward?.value || ''}`;
+    return `<tr>
+      <td><strong>${c.code}</strong><div style="opacity:0.7;font-size:12px;">${escapeHTML(c.description || '')}</div></td>
+      <td>${escapeHTML(rewardStr)}</td>
+      <td>${exp}</td>
+      <td>${uses}/${max}</td>
+      <td>${escapeHTML(c.createdBy || 'admin')}</td>
+      <td><button onclick="deleteRedeemCode('${c._id}')" style="background:#ef4444;">Delete</button></td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `<table><thead><tr><th>Code</th><th>Reward</th><th>Expiry</th><th>Uses</th><th>Created By</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function generateRedeemCode() {
+  try {
+    const type = document.getElementById('redeemRewardType')?.value || 'hc';
+    const value = document.getElementById('redeemValue')?.value || '';
+    const amount = parseInt(document.getElementById('redeemAmount')?.value || '0', 10) || undefined;
+    const isPermanent = (document.getElementById('redeemPermanent')?.value || 'false') === 'true';
+    const expiresInMinutes = parseInt(document.getElementById('redeemExpiresMinutes')?.value || '0', 10) || undefined;
+    const expiresInDays = parseInt(document.getElementById('redeemExpiresDays')?.value || '0', 10) || undefined;
+    const maxUses = parseInt(document.getElementById('redeemMaxUses')?.value || '0', 10) || undefined;
+    const description = document.getElementById('redeemDescription')?.value || '';
+    
+    const reward = { type };
+    if (type === 'hc') reward.amount = amount || 0;
+    if (type === 'cosmetic' || type === 'badge') reward.value = value;
+    
+    const body = { reward, isPermanent, description };
+    if (!isPermanent) {
+      if (expiresInMinutes) body.expiresInMinutes = expiresInMinutes;
+      if (expiresInDays) body.expiresInDays = expiresInDays;
+    }
+    if (maxUses) body.maxUses = maxUses;
+    
+    const res = await secureFetch(`${API}/api/admin/redeem-codes/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res?.json().catch(() => ({}));
+    if (res && res.ok) {
+      alert(`✅ Code generated: ${data.code}`);
+      await loadRedeemCodes();
+    } else {
+      alert('❌ Failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('❌ Network error');
+    console.error('Generate code error:', e);
+  }
+}
+
+async function deleteRedeemCode(codeId) {
+  try {
+    const res = await secureFetch(`${API}/api/admin/redeem-codes/${codeId}`, { method: 'DELETE' });
+    const data = await res?.json().catch(() => ({}));
+    if (res && res.ok) {
+      alert('✅ Code deleted');
+      await loadRedeemCodes();
+    } else {
+      alert('❌ Failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('❌ Network error');
+    console.error('Delete code error:', e);
+  }
+}
