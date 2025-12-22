@@ -103,8 +103,8 @@ function generateCsrfToken() {
 const isProd = NODE_ENV === "production";
 const csrfCookieOptions = {
   httpOnly: false,
-  sameSite: isProd ? "none" : "lax",
-  secure: isProd,
+  sameSite: "none", // allow cross-site frontends (Render)
+  secure: true,
   maxAge: 24 * 3600 * 1000,
 };
 

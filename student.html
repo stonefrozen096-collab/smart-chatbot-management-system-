@@ -1044,6 +1044,8 @@
       loadAndDisplayPet(data.settings);
       renderWarningsFromProfile(data);
       renderAchievements(data);
+      renderShop();
+      renderCosmetics();
       loadDailyRewardsStatus();
       return data;
     } catch (err) {
@@ -1320,7 +1322,8 @@
         const status = m.status || 'pending';
         const unread = status !== 'read' ? '<span class="badge" style="margin-left:6px;background:rgba(234,179,8,0.25);">unread</span>' : '';
         const reply = m.adminReply ? `<div class="mutedSmall" style="margin-top:6px;">Admin: ${m.adminReply}</div>` : '';
-        return `<div style="padding:8px;border-bottom:1px dashed rgba(255,255,255,0.07)"><strong>[${m.type}] ${m.subject}</strong>${unread}<div class="mutedSmall">${new Date(m.createdAt).toLocaleString()} — ${status}</div><div style="margin-top:6px;">${m.message}</div>${reply}</div>`;
+        const labels = Array.isArray(m.labels) && m.labels.length ? `<div style="margin-top:6px;">${m.labels.map(l=>`<span class='badge' style='background:rgba(59,130,246,0.3);margin-right:6px;'>${l}</span>`).join('')}</div>` : '';
+        return `<div style="padding:8px;border-bottom:1px dashed rgba(255,255,255,0.07)"><strong>[${m.type}] ${m.subject}</strong>${unread}<div class="mutedSmall">${new Date(m.createdAt).toLocaleString()} — ${status}</div><div style="margin-top:6px;">${m.message}</div>${labels}${reply}</div>`;
       }).join('');
     }catch(e){ studentMessagesList.textContent = 'No messages.'; }
   }

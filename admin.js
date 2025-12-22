@@ -83,6 +83,8 @@ function showSection(id) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
   const el = document.getElementById(id);
   if (el) el.classList.add("active");
+  if (id === 'redeemCodes') loadRedeemCodes();
+  if (id === 'appeals') loadAppeals();
 }
 
 //=== DARK MODE ===

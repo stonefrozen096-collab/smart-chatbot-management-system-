@@ -51,6 +51,7 @@ const studentInfoDiv = document.getElementById("studentInfo");
 let studentProfile = null;
 let chatLock = false;
 let warningsCount = 0;
+let lastBotMessage = "";
 
 // ==================== INITIAL LOAD ====================
 window.addEventListener("DOMContentLoaded", async () => {
@@ -129,11 +130,16 @@ sendBtn?.addEventListener("click", async () => {
   chatInput.value = "";
 
   const reply = await askGemini(message);
+  lastBotMessage = reply;
   await addMessage("bot", reply);
 });
 
 async function addMessage(sender, text, time = null) {
   time = time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  if (sender === "bot" && text === lastBotMessage) {
+    return; // avoid duplicate bot message
+  }
 
   const div = document.createElement("div");
   div.className = `message ${sender === "user" ? "userMsg" : "botMsg"}`;
@@ -268,6 +274,7 @@ function initSocket() {
 
     socket.on("chat:new", (chat) => {
       if (chat.roll === studentProfile.roll && chat.sender === "assistant") {
+        lastBotMessage = chat.message;
         addMessage("bot", chat.message, chat.time);
       }
     });
