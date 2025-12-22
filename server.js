@@ -1,147 +1,3 @@
-// ==================== STUDENT MESSAGES/APPEALS ====================
-// Submit student message/appeal
-app.post("/api/student/messages/submit", authenticate, csrfProtect, async (req, res) => {
-  try {
-    const schema = Joi.object({
-      type: Joi.string().valid('appeal', 'violation-question', 'lock-appeal').required(),
-      subject: Joi.string().required(),
-      message: Joi.string().required()
-    });
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.message });
-
-    const student = await Student.findOne({ roll: req.student.roll });
-    if (!student) return res.status(404).json({ error: "Student not found" });
-
-    const msg = {
-      _id: new mongoose.Types.ObjectId(),
-      type: value.type,
-      subject: value.subject,
-      message: value.message,
-      status: 'pending',
-      createdAt: new Date()
-    };
-
-    student.messages = student.messages || [];
-    student.messages.push(msg);
-    student.markModified('messages');
-    await student.save();
-
-    io.emit("student:message-submitted", { roll: student.roll, type: value.type });
-
-    res.json({ ok: true, message: "Message submitted successfully" });
-  } catch (err) {
-    console.error("submit message error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
-  }
-});
-
-// Get student's own messages
-app.get("/api/student/messages", authenticate, csrfProtect, async (req, res) => {
-  try {
-    const student = await Student.findOne({ roll: req.student.roll });
-    if (!student) return res.status(404).json({ error: "Student not found" });
-
-    const messages = student.messages || [];
-    res.json(messages);
-  } catch (err) {
-    console.error("get messages error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Admin: Get all student messages
-app.get("/api/admin/student-messages", authenticate, csrfProtect, async (req, res) => {
-  try {
-    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
-
-    const students = await Student.find({ messages: { $exists: true, $ne: [] } });
-    const all = [];
-    students.forEach(s => {
-      s.messages.forEach(msg => {
-        all.push({
-          _id: msg._id,
-          roll: s.roll,
-          name: s.name,
-          type: msg.type,
-          subject: msg.subject,
-          message: msg.message,
-          status: msg.status,
-          createdAt: msg.createdAt
-        });
-      });
-    });
-    res.json(all.sort((a, b) => b.createdAt - a.createdAt));
-  } catch (err) {
-    console.error("get student messages error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Admin: Reply to student message
-app.post("/api/admin/student-messages/:msgId/reply", authenticate, csrfProtect, async (req, res) => {
-  try {
-    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
-
-    const { reply, status } = req.body;
-    if (!reply) return res.status(400).json({ error: "Reply required" });
-    const allowed = ["pending","read","responded","resolved","closed"]; const newStatus = allowed.includes(status) ? status : 'resolved';
-
-    const result = await Student.findOneAndUpdate(
-      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
-      {
-        $set: {
-          "messages.$.adminReply": reply,
-          "messages.$.status": newStatus,
-          "messages.$.respondedAt": new Date()
-        }
-      },
-      { new: true }
-    );
-
-    if (!result) return res.status(404).json({ error: "Message not found" });
-
-    const msg = (result.messages || []).find(m => String(m._id) === String(req.params.msgId));
-    io.emit("student:message-replied", { roll: result.roll, messageId: req.params.msgId, status: newStatus, subject: msg?.subject });
-
-    res.json({ ok: true, message: "Reply sent", status: newStatus });
-  } catch (err) {
-    console.error("reply to message error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
-  }
-});
-
-// Admin: Close student message/appeal
-app.post("/api/admin/student-messages/:msgId/close", authenticate, csrfProtect, async (req, res) => {
-  try {
-    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
-    const { reason } = req.body;
-    const result = await Student.findOneAndUpdate(
-      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
-      { $set: { "messages.$.status": 'closed', "messages.$.respondedAt": new Date(), ...(reason ? { "messages.$.adminReply": reason } : {}) } },
-      { new: true }
-    );
-    if (!result) return res.status(404).json({ error: "Message not found" });
-
-    const msg = (result.messages || []).find(m => String(m._id) === String(req.params.msgId));
-    await SystemMessage.create({
-      recipientRoll: result.roll,
-      title: "Appeal Closed",
-      content: `Your appeal${msg?.subject ? ` (${msg.subject})` : ''} has been closed${reason ? `: ${reason}` : ''}.`,
-      type: "system",
-      trigger: "manual",
-      expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000)
-    });
-
-    io.emit("student:message-closed", { roll: result.roll, messageId: req.params.msgId, reason });
-    res.json({ ok: true, message: "Appeal closed" });
-  } catch (err) {
-    console.error("close message error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
-  }
-});
-
-
 // server.js — Full Student Chatbot Backend (final merged + enhancements)
 // ES module style
 import express from "express";
@@ -742,6 +598,150 @@ app.get("/api/csrf-token", (req, res) => {
   res.cookie("csrf_token", token, csrfCookieOptions);
   res.json({ csrfToken: token });
 });
+
+// ==================== STUDENT MESSAGES/APPEALS ====================
+// Submit student message/appeal
+app.post("/api/student/messages/submit", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      type: Joi.string().valid('appeal', 'violation-question', 'lock-appeal').required(),
+      subject: Joi.string().required(),
+      message: Joi.string().required()
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    const msg = {
+      _id: new mongoose.Types.ObjectId(),
+      type: value.type,
+      subject: value.subject,
+      message: value.message,
+      status: 'pending',
+      createdAt: new Date()
+    };
+
+    student.messages = student.messages || [];
+    student.messages.push(msg);
+    student.markModified('messages');
+    await student.save();
+
+    io.emit("student:message-submitted", { roll: student.roll, type: value.type });
+
+    res.json({ ok: true, message: "Message submitted successfully" });
+  } catch (err) {
+    console.error("submit message error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Get student's own messages
+app.get("/api/student/messages", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    const messages = student.messages || [];
+    res.json(messages);
+  } catch (err) {
+    console.error("get messages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: Get all student messages
+app.get("/api/admin/student-messages", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+
+    const students = await Student.find({ messages: { $exists: true, $ne: [] } });
+    const all = [];
+    students.forEach(s => {
+      s.messages.forEach(msg => {
+        all.push({
+          _id: msg._id,
+          roll: s.roll,
+          name: s.name,
+          type: msg.type,
+          subject: msg.subject,
+          message: msg.message,
+          status: msg.status,
+          createdAt: msg.createdAt
+        });
+      });
+    });
+    res.json(all.sort((a, b) => b.createdAt - a.createdAt));
+  } catch (err) {
+    console.error("get student messages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: Reply to student message
+app.post("/api/admin/student-messages/:msgId/reply", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+
+    const { reply, status } = req.body;
+    if (!reply) return res.status(400).json({ error: "Reply required" });
+    const allowed = ["pending","read","responded","resolved","closed"]; const newStatus = allowed.includes(status) ? status : 'resolved';
+
+    const result = await Student.findOneAndUpdate(
+      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      {
+        $set: {
+          "messages.$.adminReply": reply,
+          "messages.$.status": newStatus,
+          "messages.$.respondedAt": new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!result) return res.status(404).json({ error: "Message not found" });
+
+    const msg = (result.messages || []).find(m => String(m._id) === String(req.params.msgId));
+    io.emit("student:message-replied", { roll: result.roll, messageId: req.params.msgId, status: newStatus, subject: msg?.subject });
+
+    res.json({ ok: true, message: "Reply sent", status: newStatus });
+  } catch (err) {
+    console.error("reply to message error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Admin: Close student message/appeal
+app.post("/api/admin/student-messages/:msgId/close", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    const { reason } = req.body;
+    const result = await Student.findOneAndUpdate(
+      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      { $set: { "messages.$.status": 'closed', "messages.$.respondedAt": new Date(), ...(reason ? { "messages.$.adminReply": reason } : {}) } },
+      { new: true }
+    );
+    if (!result) return res.status(404).json({ error: "Message not found" });
+
+    const msg = (result.messages || []).find(m => String(m._id) === String(req.params.msgId));
+    await SystemMessage.create({
+      recipientRoll: result.roll,
+      title: "Appeal Closed",
+      content: `Your appeal${msg?.subject ? ` (${msg.subject})` : ''} has been closed${reason ? `: ${reason}` : ''}.`,
+      type: "system",
+      trigger: "manual",
+      expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000)
+    });
+
+    io.emit("student:message-closed", { roll: result.roll, messageId: req.params.msgId, reason });
+    res.json({ ok: true, message: "Appeal closed" });
+  } catch (err) {
+    console.error("close message error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
 
 // ---------------------- Health & Auth ----------------------
 app.get("/api/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
@@ -2498,8 +2498,8 @@ app.get("/api/dashboard/status", authenticate, csrfProtect, async (req, res) => 
 
 // ---------------------- Automated Messaging System ----------------------
 
-// Get system messages for student
-app.get("/api/student/messages", authenticate, csrfProtect, async (req, res) => {
+// Get system messages for student (distinct from appeals)
+app.get("/api/student/system-messages", authenticate, csrfProtect, async (req, res) => {
   try {
     const messages = await SystemMessage.find({ 
       recipientRoll: req.student.roll,
@@ -2513,8 +2513,8 @@ app.get("/api/student/messages", authenticate, csrfProtect, async (req, res) => 
   }
 });
 
-// Mark message as read
-app.post("/api/student/messages/:id/read", authenticate, csrfProtect, async (req, res) => {
+// Mark system message as read
+app.post("/api/student/system-messages/:id/read", authenticate, csrfProtect, async (req, res) => {
   try {
     await SystemMessage.updateOne(
       { _id: req.params.id, recipientRoll: req.student.roll },

@@ -1095,7 +1095,7 @@
       wrap.innerHTML = `<strong>${title}</strong> ${typeBadge} ${unread}<div style="margin-top:6px">${body}</div><div class="mail-meta">${created}</div>`;
       const actions = document.createElement('div'); actions.className = 'mail-actions';
       const markBtn = document.createElement('button'); markBtn.className = 'btn small'; markBtn.textContent = 'Mark as read';
-      markBtn.onclick = async ()=>{ try{ await fetch(`${API}/api/student/messages/${encodeURIComponent(m._id)}/read`, { method:'POST', headers: authHeaders() }); fetchMailbox(); }catch(e){} };
+      markBtn.onclick = async ()=>{ try{ await fetch(`${API}/api/student/system-messages/${encodeURIComponent(m._id)}/read`, { method:'POST', headers: authHeaders() }); fetchMailbox(); }catch(e){} };
       actions.appendChild(markBtn);
       wrap.appendChild(actions);
       mailList.appendChild(wrap);
