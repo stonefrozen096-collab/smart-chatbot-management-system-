@@ -208,6 +208,7 @@
         <a onclick="showSection('course')"><i class="fa fa-book"></i> Course Plans</a>
         <a onclick="showSection('notices')"><i class="fa fa-bell"></i> Notices</a>
         <a onclick="showSection('messaging')"><i class="fa fa-envelope"></i> Messages</a>
+        <a onclick="showSection('appeals')"><i class="fa fa-inbox"></i> Student Appeals</a>
         <a onclick="showSection('hcCurrency')"><i class="fa fa-coins"></i> HC Currency</a>
         <a onclick="showSection('rewards')"><i class="fa fa-gift"></i> Rewards</a>
         <a onclick="showSection('audit')"><i class="fa fa-history"></i> Audit Logs</a>
@@ -254,6 +255,26 @@
             <button onclick="showSection('course')">📘 Upload Course Plan</button>
         </div>
     </div>
+
+        <!-- ============================================ -->
+        <!-- 8b. STUDENT APPEALS -->
+        <!-- ============================================ -->
+        <div id="appeals" class="section">
+                <h2>📨 Student Appeals & Messages</h2>
+                <div class="card">
+                        <h3>Inbox</h3>
+                        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+                            <button onclick="loadAppeals()">🔄 Refresh</button>
+                            <select id="appealsFilter" onchange="loadAppeals()" style="max-width:240px;">
+                                <option value="">All</option>
+                                <option value="pending">Pending</option>
+                                <option value="responded">Responded</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <div id="appealsContainer"><p style="opacity:0.6;">Loading appeals...</p></div>
+                </div>
+        </div>
 
     <!-- ============================================ -->
     <!-- 2. ANALYTICS -->

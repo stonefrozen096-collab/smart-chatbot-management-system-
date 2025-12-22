@@ -1,3 +1,146 @@
+// ==================== STUDENT MESSAGES/APPEALS ====================
+// Submit student message/appeal
+app.post("/api/student/messages/submit", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const schema = Joi.object({
+      type: Joi.string().valid('appeal', 'violation-question', 'lock-appeal').required(),
+      subject: Joi.string().required(),
+      message: Joi.string().required()
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.message });
+
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    const msg = {
+      _id: new mongoose.Types.ObjectId(),
+      type: value.type,
+      subject: value.subject,
+      message: value.message,
+      status: 'pending',
+      createdAt: new Date()
+    };
+
+    student.messages = student.messages || [];
+    student.messages.push(msg);
+    student.markModified('messages');
+    await student.save();
+
+    io.emit("student:message-submitted", { roll: student.roll, type: value.type });
+
+    res.json({ ok: true, message: "Message submitted successfully" });
+  } catch (err) {
+    console.error("submit message error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Get student's own messages
+app.get("/api/student/messages", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    const messages = student.messages || [];
+    res.json(messages);
+  } catch (err) {
+    console.error("get messages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: Get all student messages
+app.get("/api/admin/student-messages", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+
+    const students = await Student.find({ messages: { $exists: true, $ne: [] } });
+    const all = [];
+    students.forEach(s => {
+      s.messages.forEach(msg => {
+        all.push({
+          _id: msg._id,
+          roll: s.roll,
+          name: s.name,
+          type: msg.type,
+          subject: msg.subject,
+          message: msg.message,
+          status: msg.status,
+          createdAt: msg.createdAt
+        });
+      });
+    });
+    res.json(all.sort((a, b) => b.createdAt - a.createdAt));
+  } catch (err) {
+    console.error("get student messages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: Reply to student message
+app.post("/api/admin/student-messages/:msgId/reply", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+
+    const { reply, status } = req.body;
+    if (!reply) return res.status(400).json({ error: "Reply required" });
+    const allowed = ["pending","read","responded","resolved","closed"]; const newStatus = allowed.includes(status) ? status : 'resolved';
+
+    const result = await Student.findOneAndUpdate(
+      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      {
+        $set: {
+          "messages.$.adminReply": reply,
+          "messages.$.status": newStatus,
+          "messages.$.respondedAt": new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!result) return res.status(404).json({ error: "Message not found" });
+
+    const msg = (result.messages || []).find(m => String(m._id) === String(req.params.msgId));
+    io.emit("student:message-replied", { roll: result.roll, messageId: req.params.msgId, status: newStatus, subject: msg?.subject });
+
+    res.json({ ok: true, message: "Reply sent", status: newStatus });
+  } catch (err) {
+    console.error("reply to message error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Admin: Close student message/appeal
+app.post("/api/admin/student-messages/:msgId/close", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    const { reason } = req.body;
+    const result = await Student.findOneAndUpdate(
+      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      { $set: { "messages.$.status": 'closed', "messages.$.respondedAt": new Date(), ...(reason ? { "messages.$.adminReply": reason } : {}) } },
+      { new: true }
+    );
+    if (!result) return res.status(404).json({ error: "Message not found" });
+
+    const msg = (result.messages || []).find(m => String(m._id) === String(req.params.msgId));
+    await SystemMessage.create({
+      recipientRoll: result.roll,
+      title: "Appeal Closed",
+      content: `Your appeal${msg?.subject ? ` (${msg.subject})` : ''} has been closed${reason ? `: ${reason}` : ''}.`,
+      type: "system",
+      trigger: "manual",
+      expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000)
+    });
+
+    io.emit("student:message-closed", { roll: result.roll, messageId: req.params.msgId, reason });
+    res.json({ ok: true, message: "Appeal closed" });
+  } catch (err) {
+    console.error("close message error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
 
 // server.js — Full Student Chatbot Backend (final merged + enhancements)
 // ES module style
@@ -139,6 +282,19 @@ const studentSchema = new Schema(
     chatbotLockedUntil: { type: Date, default: null },
     chatbotLockReason: { type: String, default: "" },
     hc: { type: Number, default: 0 }, // HC currency for shop purchases
+    loginStreak: { type: Number, default: 0 }, // Current day in 1-7 streak
+    lastLoginDate: { type: Date, default: null }, // Last login date
+    claimedRewardToday: { type: Boolean, default: false }, // Has claimed today's reward
+    messages: [{
+      _id: mongoose.Schema.Types.ObjectId,
+      type: { type: String, enum: ['appeal', 'violation-question', 'lock-appeal'], default: 'appeal' },
+      subject: String,
+      message: String,
+      status: { type: String, enum: ['pending', 'read', 'responded', 'resolved', 'closed'], default: 'pending' },
+      adminReply: String,
+      createdAt: { type: Date, default: Date.now },
+      respondedAt: Date
+    }],
     verified: { type: Boolean, default: false },
     verifiedBadge: {
       isActive: { type: Boolean, default: false },
@@ -863,6 +1019,100 @@ app.get("/api/pet/greeting", authenticate, csrfProtect, async (req, res) => {
     res.json({ greeting, mood, hour });
   } catch (err) {
     console.error("get greeting error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Daily Login Rewards
+app.get("/api/daily-rewards/status", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastLogin = student.lastLoginDate ? new Date(student.lastLoginDate) : null;
+    const lastLoginToday = lastLogin && lastLogin.getTime() === today.getTime();
+
+    // Reset streak if missed a day
+    if (lastLogin) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (lastLogin.getTime() < yesterday.getTime()) {
+        student.loginStreak = 0;
+      }
+    }
+
+    // Advance streak on new day
+    if (!lastLoginToday) {
+      student.loginStreak = (student.loginStreak || 0) + 1;
+      if (student.loginStreak > 7) student.loginStreak = 1;
+      student.lastLoginDate = today;
+      student.claimedRewardToday = false;
+      await student.save();
+    }
+
+    res.json({
+      currentDay: student.loginStreak || 1,
+      claimedToday: student.claimedRewardToday || false
+    });
+  } catch (err) {
+    console.error("daily-rewards status error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/daily-rewards/claim", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    if (student.claimedRewardToday) {
+      return res.status(400).json({ error: "Already claimed today's reward" });
+    }
+
+    const day = student.loginStreak || 1;
+    const REWARDS = [
+      { day: 1, hc: Math.floor(Math.random() * 500 + 100) },  // 100-600
+      { day: 2, hc: Math.floor(Math.random() * 600 + 200) },  // 200-800
+      { day: 3, hc: Math.floor(Math.random() * 700 + 300) },  // 300-1000
+      { day: 4, hc: Math.floor(Math.random() * 800 + 400) },  // 400-1200
+      { day: 5, hc: Math.floor(Math.random() * 900 + 500) },  // 500-1400
+      { day: 6, hc: Math.floor(Math.random() * 1000 + 600) }, // 600-1600
+      { day: 7, hc: 2000, cosmetic: 'starlight-veil' }        // 2000 + rare cosmetic
+    ];
+
+    const reward = REWARDS.find(r => r.day === day) || REWARDS[0];
+    student.hc = (student.hc || 0) + reward.hc;
+
+    // Grant cosmetic on day 7
+    if (reward.cosmetic) {
+      student.settings = student.settings || {};
+      student.settings.unlocked = student.settings.unlocked || {};
+      student.settings.unlocked.avatarBorders = student.settings.unlocked.avatarBorders || [];
+      if (!student.settings.unlocked.avatarBorders.includes(reward.cosmetic)) {
+        student.settings.unlocked.avatarBorders.push(reward.cosmetic);
+      }
+    }
+
+    student.claimedRewardToday = true;
+    student.markModified('settings');
+    await student.save();
+
+    io.emit("daily-reward-claimed", {
+      roll: student.roll,
+      day,
+      hc: reward.hc,
+      cosmetic: reward.cosmetic || null
+    });
+
+    res.json({
+      ok: true,
+      message: `Claimed Day ${day} reward: ${reward.hc} ⚡${reward.cosmetic ? ' + rare cosmetic!' : ''}`,
+      reward
+    });
+  } catch (err) {
+    console.error("daily-rewards claim error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

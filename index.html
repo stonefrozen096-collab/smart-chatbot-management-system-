@@ -18,6 +18,7 @@
   button:hover{transform:translateY(-2px) scale(1.01);box-shadow:0 14px 32px rgba(0,123,255,0.45);}
   .toggle-link{cursor:pointer;text-decoration:underline;opacity:0.9;}
   .error-msg{color:#ffcccb;font-size:13px;min-height:18px;}
+  .lock-banner{display:none;margin:10px 0;padding:10px;border-radius:10px;background:rgba(234,179,8,0.2);border:1px solid rgba(234,179,8,0.45);color:#1f2937;font-weight:600;}
   section{display:none;animation:fadeIn 0.4s ease;}
   #loginSection{display:block;}
   @keyframes gradientShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
@@ -34,6 +35,7 @@
   <!-- LOGIN -->
   <section id="loginSection">
     <div class="error-msg" id="loginError"></div>
+    <div class="lock-banner" id="lockBanner">🔒 Account locked</div>
     <input type="text" id="loginRoll" placeholder="Roll Number or Admin ID">
     <input type="password" id="loginPassword" placeholder="Password">
     <button id="loginBtn">Login</button>
@@ -78,6 +80,8 @@ loginBtn.addEventListener("click",async()=>{
   const roll=sanitize(loginRoll.value.trim());
   const password=sanitize(loginPassword.value.trim());
   loginError.textContent="";
+  lockBanner.style.display = 'none';
+  lockBanner.textContent = '🔒 Account locked';
   if(!roll||!password)return loginError.textContent="All fields required!";
   try{
     await loadCSRF();
@@ -93,6 +97,30 @@ loginBtn.addEventListener("click",async()=>{
     sessionStorage.setItem("token",data.accessToken);
     localStorage.setItem("token",data.accessToken); // persist for student.html
     sessionStorage.setItem("userProfile",JSON.stringify(data.student));
+
+    // verify lock status before redirect
+    try {
+      const meRes = await fetch(`${API_URL}/api/me`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${data.accessToken}`, 'x-csrf-token': csrfToken }
+      });
+      const me = await meRes.json();
+      if (me && me.lockedUntil) {
+        const until = new Date(me.lockedUntil);
+        if (until > new Date()) {
+          lockBanner.textContent = `🔒 Account locked until ${until.toLocaleString()}. Please contact admin.`;
+          lockBanner.style.display = 'block';
+          // Clear tokens so locked users cannot proceed
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+          // Disable login temporarily
+          loginBtn.disabled = true;
+          setTimeout(()=>{ loginBtn.disabled = false; }, 2000);
+          return;
+        }
+      }
+    } catch (e) { /* ignore and continue */ }
 
     // redirect
     if(data.student.role==="admin") window.location.href="admin.html";

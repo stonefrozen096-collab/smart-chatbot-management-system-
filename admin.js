@@ -792,50 +792,80 @@ async function deleteCoursePlan(planId) {
 }
 
 //===============================================
-// 8. APPEALS
+// 8. APPEALS / STUDENT MESSAGES
 //===============================================
 async function loadAppeals() {
-  const res = await secureFetch(`${API}/api/admin/appeals`);
-  if (!res || !res.ok) return;
+  const filter = document.getElementById('appealsFilter')?.value || '';
+  const url = new URL(`${API}/api/admin/student-messages`);
+  if (filter) url.searchParams.set('status', filter);
+  const res = await secureFetch(url.toString());
+  if (!res || !res.ok) { const c = document.getElementById('appealsContainer'); if (c) c.innerHTML = '<p style="opacity:0.7;">Failed to load messages</p>'; return; }
   
-  const appeals = await res.json();
+  const msgs = await res.json();
   const container = document.getElementById('appealsContainer');
   if (!container) return;
   
   container.innerHTML = '';
-  if (!Array.isArray(appeals) || appeals.length === 0) {
-    container.innerHTML = '<p style="opacity:0.7;">No appeals</p>';
+  if (!Array.isArray(msgs) || msgs.length === 0) {
+    container.innerHTML = '<p style="opacity:0.7;">No messages</p>';
     return;
   }
   
-  appeals.forEach(a => {
+  msgs.forEach(m => {
     const div = document.createElement('div');
     div.style.cssText = 'background:rgba(255,255,255,0.08);padding:12px;margin:8px 0;border-radius:10px;';
+    const replyBlock = m.adminReply ? `<div style="margin-top:8px;background:rgba(34,197,94,0.2);padding:8px;border-radius:6px;"><strong>Admin Reply:</strong> ${escapeHTML(m.adminReply)}</div>` : '';
     div.innerHTML = `
-      <strong>${escapeHTML(a.studentRoll)} - ${escapeHTML(a.reason || 'Appeal')}</strong><br>
-      <p style="margin:8px 0;">${escapeHTML(a.description || '')}</p>
-      <small style="opacity:0.8;">${new Date(a.createdAt).toLocaleString()}</small><br>
-      <button onclick="respondToAppeal('${a._id}')" style="margin-top:8px;">Respond</button>
+      <div style="display:flex;justify-content:space-between;gap:10px;">
+        <div style="flex:1;">
+          <strong>${escapeHTML(m.roll || 'Unknown')}</strong>
+          <span style="opacity:0.8;font-size:12px;"> — ${new Date(m.createdAt).toLocaleString()}</span>
+          <div class="badge" style="display:inline-block;margin-left:8px;background:rgba(59,130,246,0.25);padding:2px 8px;border-radius:999px;font-size:12px;">${escapeHTML(m.type)}</div>
+          <div class="badge" style="display:inline-block;margin-left:6px;background:${m.status==='pending'?'rgba(234,179,8,0.25)': m.status==='closed'?'rgba(239,68,68,0.25)':'rgba(34,197,94,0.25)'};padding:2px 8px;border-radius:999px;font-size:12px;">${escapeHTML(m.status || 'pending')}</div>
+          <div style="margin-top:6px;font-weight:600;">${escapeHTML(m.subject || '(no subject)')}</div>
+          <div style="margin-top:6px;">${escapeHTML(m.message || '')}</div>
+          ${replyBlock}
+        </div>
+        <div>
+          <button onclick="replyToStudentMessage('${m._id}')">Reply</button>
+          <button onclick="closeStudentMessage('${m._id}')" style="background:#ef4444;">Mark Closed</button>
+        </div>
+      </div>
     `;
     container.appendChild(div);
   });
 }
 
-async function respondToAppeal(appealId) {
-  const response = prompt('Enter your response:');
-  if (!response) return;
-  
-  const res = await secureFetch(`${API}/api/admin/appeal/${appealId}/respond`, {
+async function replyToStudentMessage(messageId) {
+  const reply = prompt('Enter reply to student:');
+  if (!reply) return;
+  const status = confirm('Mark as responded? OK = responded, Cancel = resolved') ? 'responded' : 'resolved';
+  const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/reply`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ response, status: 'resolved' })
+    body: JSON.stringify({ reply, status })
   });
-  
   if (res && res.ok) {
-    alert('✅ Appeal response sent');
+    alert('✅ Reply sent');
     loadAppeals();
   } else {
-    alert('❌ Failed to respond');
+    alert('❌ Failed to send reply');
+  }
+}
+
+async function closeStudentMessage(messageId) {
+  const reason = prompt('Enter reason for closing:');
+  if (reason === null) return; // cancelled
+  const res = await secureFetch(`${API}/api/admin/student-messages/${messageId}/close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason })
+  });
+  if (res && res.ok) {
+    alert('✅ Appeal marked as closed');
+    loadAppeals();
+  } else {
+    alert('❌ Failed to mark closed');
   }
 }
 
