@@ -274,8 +274,11 @@ function initSocket() {
 
     socket.on("chat:new", (chat) => {
       if (chat.roll === studentProfile.roll && chat.sender === "assistant") {
-        lastBotMessage = chat.message;
-        addMessage("bot", chat.message, chat.time);
+          // Prevent double-add if API path already added this reply
+          if (chat.message !== lastBotMessage) {
+            lastBotMessage = chat.message;
+            addMessage("bot", chat.message, chat.time);
+          }
       }
     });
 
