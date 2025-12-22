@@ -712,7 +712,7 @@ app.post("/api/admin/student-messages/:msgId/reply", authenticate, csrfProtect, 
     const allowed = ["pending","read","responded","resolved","closed"]; const newStatus = allowed.includes(status) ? status : 'resolved';
 
     const result = await Student.findOneAndUpdate(
-      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      { "messages._id": new mongoose.Types.ObjectId(req.params.msgId) },
       {
         $set: {
           "messages.$.adminReply": reply,
@@ -741,7 +741,7 @@ app.post("/api/admin/student-messages/:msgId/close", authenticate, csrfProtect, 
     if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
     const { reason } = req.body;
     const result = await Student.findOneAndUpdate(
-      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      { "messages._id": new mongoose.Types.ObjectId(req.params.msgId) },
       { $set: { "messages.$.status": 'closed', "messages.$.respondedAt": new Date(), ...(reason ? { "messages.$.adminReply": reason } : {}) } },
       { new: true }
     );
@@ -773,7 +773,7 @@ app.post("/api/admin/student-messages/:msgId/labels", authenticate, csrfProtect,
     if (!Array.isArray(labels)) return res.status(400).json({ error: "Labels must be an array" });
     
     const result = await Student.findOneAndUpdate(
-      { "messages._id": mongoose.Types.ObjectId(req.params.msgId) },
+      { "messages._id": new mongoose.Types.ObjectId(req.params.msgId) },
       { $set: { "messages.$.labels": labels } },
       { new: true }
     );
@@ -903,7 +903,7 @@ app.post("/api/student/redeem-code", authenticate, csrfProtect, async (req, res)
 });
 
 // Admin: List all redeem codes
-app.get("/api/admin/redeem-codes", authenticate, csrfProtect, async (req, res) => {
+app.get("/api/admin/redeem-codes", authenticate, async (req, res) => {
   try {
     if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
     const codes = await RedeemCode.find().sort({ createdAt: -1 });
@@ -1581,6 +1581,13 @@ app.post("/api/shop/buy", authenticate, csrfProtect, async (req, res) => {
     // Deduct HC and add to unlocked
     student.hc -= value.price;
     student.settings.unlocked[value.type].push(value.value);
+
+    // Auto-equip virtual pet after purchase
+    if (value.type === 'virtualPets') {
+      student.settings.cosmetics = student.settings.cosmetics || {};
+      student.settings.cosmetics.virtualPet = value.value;
+      student.markModified('settings.cosmetics');
+    }
 
     // ASCENDED achievement unlock: if buying an ASCENDED virtual pet, grant exclusive title effect
     const ASCENDED_PETS = new Set([

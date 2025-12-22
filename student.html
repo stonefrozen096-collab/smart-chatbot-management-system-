@@ -1908,15 +1908,11 @@
         return;
       }
       const data = await res.json();
-      // Update current profile with new HC and unlocked items
-      currentProfile.hc = data.hc;
-      currentProfile.settings.unlocked = data.unlocked;
-      currentProfile.settings.cosmetics = currentProfile.settings.cosmetics || {};
-      currentProfile.settings.cosmetics.virtualPet = value; // Auto-equip purchased pet
-      renderShop(); // Update shop to show new balance and ownership
-      renderCosmetics(); // Update cosmetics to reflect unlocked items
-      loadAndDisplayPet(currentProfile.settings); // Immediately display the new pet
-      renderAchievements(currentProfile); // Update achievements after purchase
+      // Re-fetch profile to get latest data from server
+      await fetchProfile();
+      renderShop();
+      renderCosmetics();
+      renderAchievements(currentProfile);
       alert(`✅ ${data.message}`);
     } catch (e) {
       alert('❌ Failed to purchase cosmetic');
