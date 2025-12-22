@@ -607,7 +607,11 @@ function csrfProtect(req, res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
   const cookieToken = req.cookies["csrf_token"];
   const headerToken = req.headers["x-csrf-token"];
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+  // Accept header token; if cookie present it must match, otherwise header alone is accepted
+  if (!headerToken) {
+    return res.status(403).json({ error: "Invalid CSRF token" });
+  }
+  if (cookieToken && cookieToken !== headerToken) {
     return res.status(403).json({ error: "Invalid CSRF token" });
   }
   next();
