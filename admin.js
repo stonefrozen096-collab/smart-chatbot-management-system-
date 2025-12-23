@@ -1273,31 +1273,77 @@ document.addEventListener('DOMContentLoaded', () => {
 // 9. REDEEM CODES MANAGEMENT
 //===============================================
 async function loadRedeemCodes() {
-  const container = document.getElementById('redeemCodesContainer');
-  if (!container) return;
-  const res = await secureFetch(`${API}/api/admin/redeem-codes`);
-  if (!res || !res.ok) { container.innerHTML = '<p style="opacity:0.7;">Failed to load codes</p>'; return; }
-  const codes = await res.json();
-  if (!Array.isArray(codes) || codes.length === 0) { container.innerHTML = '<p style="opacity:0.7;">No codes</p>'; return; }
-  const rows = codes.map(c => {
-    const exp = c.isPermanent ? 'Permanent' : (c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '—');
-    const uses = (c.usedBy || []).length;
-    const max = c.maxUses || '∞';
-    const rewardStr = c.reward?.type === 'hc' ? `HC +${c.reward.amount}` : `${c.reward?.type}:${c.reward?.value || ''}`;
-    return `<tr>
-      <td><strong>${c.code}</strong><div style="opacity:0.7;font-size:12px;">${escapeHTML(c.description || '')}</div></td>
-      <td>${escapeHTML(rewardStr)}</td>
-      <td>${exp}</td>
-      <td>${uses}/${max}</td>
-      <td>${escapeHTML(c.createdBy || 'admin')}</td>
-      <td><button onclick="deleteRedeemCode('${c._id}')" style="background:#ef4444;">Delete</button></td>
-    </tr>`;
-  }).join('');
-  container.innerHTML = `<table><thead><tr><th>Code</th><th>Reward</th><th>Expiry</th><th>Uses</th><th>Created By</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
+  try {
+    const container = document.getElementById('redeemCodesContainer');
+    if (!container) {
+      console.error('Redeem codes container not found');
+      return;
+    }
+    
+    console.log('[Redeem Codes] Starting load...');
+    const res = await secureFetch(`${API}/api/admin/redeem-codes`);
+    
+    if (!res) {
+      console.error('[Redeem Codes] No response from API');
+      container.innerHTML = '<p style="opacity:0.7;">❌ Network error loading codes</p>';
+      return;
+    }
+    
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.error('[Redeem Codes] API error:', res.status, errData);
+      container.innerHTML = `<p style="opacity:0.7;">❌ Error: ${errData.error || 'Failed to load codes'}</p>`;
+      return;
+    }
+    
+    const codes = await res.json();
+    console.log('[Redeem Codes] Loaded:', codes);
+    
+    if (!Array.isArray(codes) || codes.length === 0) {
+      container.innerHTML = '<p style="opacity:0.7;">📭 No redeem codes yet. Create one to get started!</p>';
+      return;
+    }
+    
+    const rows = codes.map(c => {
+      const exp = c.isPermanent ? 'Permanent' : (c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '—');
+      const uses = (c.usedBy || []).length;
+      const max = c.maxUses || '∞';
+      const rewardStr = c.reward?.type === 'hc' ? `HC +${c.reward.amount}` : `${c.reward?.type}:${c.reward?.value || ''}`;
+      return `<tr>
+        <td><strong>${c.code}</strong><div style="opacity:0.7;font-size:12px;">${escapeHTML(c.description || '')}</div></td>
+        <td>${escapeHTML(rewardStr)}</td>
+        <td>${exp}</td>
+        <td>${uses}/${max}</td>
+        <td>${escapeHTML(c.createdBy || 'admin')}</td>
+        <td><button onclick="deleteRedeemCode('${c._id}')" style="background:#ef4444;">Delete</button></td>
+      </tr>`;
+    }).join('');
+    
+    container.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid rgba(255,255,255,0.2);">
+          <th style="padding:12px;text-align:left;">Code</th>
+          <th style="padding:12px;text-align:left;">Reward</th>
+          <th style="padding:12px;text-align:left;">Expiry</th>
+          <th style="padding:12px;text-align:center;">Uses</th>
+          <th style="padding:12px;text-align:left;">Created By</th>
+          <th style="padding:12px;text-align:center;">Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (err) {
+    console.error('[Redeem Codes] Unexpected error:', err);
+    const container = document.getElementById('redeemCodesContainer');
+    if (container) {
+      container.innerHTML = '<p style="opacity:0.7;">❌ Error: ' + err.message + '</p>';
+    }
+  }
 }
 
 async function generateRedeemCode() {
   try {
+    console.log('[Generate Code] Starting...');
     const type = document.getElementById('redeemRewardType')?.value || 'hc';
     const value = document.getElementById('redeemValue')?.value || '';
     const amount = parseInt(document.getElementById('redeemAmount')?.value || '0', 10) || undefined;
@@ -1318,36 +1364,48 @@ async function generateRedeemCode() {
     }
     if (maxUses) body.maxUses = maxUses;
     
+    console.log('[Generate Code] Payload:', body);
     const res = await secureFetch(`${API}/api/admin/redeem-codes/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
     const data = await res?.json().catch(() => ({}));
+    console.log('[Generate Code] Response:', res?.ok, data);
     if (res && res.ok) {
       alert(`✅ Code generated: ${data.code}`);
+      document.getElementById('redeemDescription').value = '';
+      document.getElementById('redeemAmount').value = '';
+      document.getElementById('redeemValue').value = '';
+      document.getElementById('redeemExpiresMinutes').value = '';
+      document.getElementById('redeemExpiresDays').value = '';
+      document.getElementById('redeemMaxUses').value = '';
       await loadRedeemCodes();
     } else {
       alert('❌ Failed: ' + (data.error || 'Unknown error'));
+      console.error('Generate failed:', data);
     }
   } catch (e) {
-    alert('❌ Network error');
+    alert('❌ Network error: ' + e.message);
     console.error('Generate code error:', e);
   }
 }
 
 async function deleteRedeemCode(codeId) {
   try {
+    console.log('[Delete Code] Starting for:', codeId);
     const res = await secureFetch(`${API}/api/admin/redeem-codes/${codeId}`, { method: 'DELETE' });
     const data = await res?.json().catch(() => ({}));
+    console.log('[Delete Code] Response:', res?.ok, data);
     if (res && res.ok) {
       alert('✅ Code deleted');
       await loadRedeemCodes();
     } else {
       alert('❌ Failed: ' + (data.error || 'Unknown error'));
+      console.error('Delete failed:', data);
     }
   } catch (e) {
-    alert('❌ Network error');
+    alert('❌ Network error: ' + e.message);
     console.error('Delete code error:', e);
   }
 }
