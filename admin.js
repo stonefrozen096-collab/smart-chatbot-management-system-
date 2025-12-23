@@ -80,11 +80,27 @@ function escapeHTML(str) {
 
 //=== SECTION SWITCHING ===
 function showSection(id) {
+  console.log('[Section] Switching to:', id);
   document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
   const el = document.getElementById(id);
-  if (el) el.classList.add("active");
-  if (id === 'redeemCodes') loadRedeemCodes();
-  if (id === 'appeals') loadAppeals();
+  if (el) {
+    el.classList.add("active");
+    console.log('[Section] Activated:', id);
+  } else {
+    console.error('[Section] Element not found:', id);
+  }
+  if (id === 'redeemCodes') {
+    console.log('[Section] Triggering loadRedeemCodes()');
+    loadRedeemCodes();
+  }
+  if (id === 'appeals') {
+    console.log('[Section] Triggering loadAppeals()');
+    loadAppeals();
+  }
+  if (id === 'featureControl') {
+    console.log('[Section] Triggering loadFeatureToggles()');
+    loadFeatureToggles();
+  }
 }
 
 //=== DARK MODE ===
@@ -1231,6 +1247,7 @@ async function initAdmin() {
   await loadTemplates();
   await loadAppeals();
   await loadRedeemCodes();
+  await loadFeatureToggles();
   
   showSection('dashboard');
 }
@@ -1272,11 +1289,12 @@ document.addEventListener('DOMContentLoaded', () => {
 //===============================================
 // 9. REDEEM CODES MANAGEMENT
 //===============================================
-async function loadRedeemCodes() {
+window.loadRedeemCodes = async function loadRedeemCodes() {
   try {
     const container = document.getElementById('redeemCodesContainer');
     if (!container) {
-      console.error('Redeem codes container not found');
+      console.error('[Redeem Codes] Container not found! DOM element missing.');
+      alert('❌ Redeem codes container not found in DOM. Check HTML.');
       return;
     }
     
@@ -1339,9 +1357,9 @@ async function loadRedeemCodes() {
       container.innerHTML = '<p style="opacity:0.7;">❌ Error: ' + err.message + '</p>';
     }
   }
-}
+};
 
-async function generateRedeemCode() {
+window.generateRedeemCode = async function generateRedeemCode() {
   try {
     console.log('[Generate Code] Starting...');
     const type = document.getElementById('redeemRewardType')?.value || 'hc';
@@ -1389,9 +1407,9 @@ async function generateRedeemCode() {
     alert('❌ Network error: ' + e.message);
     console.error('Generate code error:', e);
   }
-}
+};
 
-async function deleteRedeemCode(codeId) {
+window.deleteRedeemCode = async function deleteRedeemCode(codeId) {
   try {
     console.log('[Delete Code] Starting for:', codeId);
     const res = await secureFetch(`${API}/api/admin/redeem-codes/${codeId}`, { method: 'DELETE' });
@@ -1408,4 +1426,174 @@ async function deleteRedeemCode(codeId) {
     alert('❌ Network error: ' + e.message);
     console.error('Delete code error:', e);
   }
+};
+
+//===============================================
+// 10. FEATURE CONTROL
+//===============================================
+async function loadFeatureToggles() {
+  try {
+    const container = document.getElementById('featureTogglesContainer');
+    if (!container) return;
+    
+    const res = await secureFetch(`${API}/api/admin/features`);
+    if (!res || !res.ok) {
+      container.innerHTML = '<p style="opacity:0.7;">Failed to load features</p>';
+      return;
+    }
+    
+    const features = await res.json();
+    
+    const featureLabels = {
+      shop: 'HC Shop',
+      cosmetics: 'Cosmetics',
+      redeemCodes: 'Redeem Codes',
+      appeals: 'Student Appeals/Messages',
+      dailyRewards: 'Daily Login Rewards',
+      chat: 'Chatbot',
+      petDisplay: 'Virtual Pet Display',
+      achievements: 'Achievements'
+    };
+    
+    let html = '';
+    Object.keys(featureLabels).forEach(key => {
+      const enabled = features[key] !== false;
+      const statusColor = enabled ? '#34d399' : '#ef4444';
+      const statusText = enabled ? 'Enabled' : 'Disabled';
+      html += `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(255,255,255,0.05);border-radius:10px;">
+          <div>
+            <strong>${featureLabels[key]}</strong>
+            <div style="font-size:12px;opacity:0.7;margin-top:4px;">Status: <span style="color:${statusColor};">${statusText}</span></div>
+          </div>
+          <button onclick="toggleFeature('${key}', ${!enabled})" style="background:${enabled ? '#ef4444' : '#34d399'};padding:8px 16px;">
+            ${enabled ? 'Disable' : 'Enable'}
+          </button>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Load features error:', err);
+  }
 }
+
+window.toggleFeature = async function(featureName, enabled) {
+  try {
+    const res = await secureFetch(`${API}/api/admin/features/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featureName, enabled })
+    });
+    const data = await res?.json().catch(() => ({}));
+    if (res && res.ok) {
+      alert(`✅ Feature ${enabled ? 'enabled' : 'disabled'}`);
+      await loadFeatureToggles();
+    } else {
+      alert('❌ Failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('❌ Network error');
+    console.error('Toggle feature error:', e);
+  }
+};
+
+//===============================================
+// 11. DEBUG & TEST FUNCTIONS
+//===============================================
+window.testRedeemCodeAPI = async function() {
+  const output = document.getElementById('debugRedeemOutput');
+  output.innerHTML = 'Testing API...<br>';
+  
+  try {
+    output.innerHTML += `API URL: ${API}/api/admin/redeem-codes<br>`;
+    const res = await secureFetch(`${API}/api/admin/redeem-codes`);
+    output.innerHTML += `Response status: ${res?.status || 'null'}<br>`;
+    
+    if (!res) {
+      output.innerHTML += '<span style="color:#ef4444;">❌ No response from API</span><br>';
+      return;
+    }
+    
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      output.innerHTML += `<span style="color:#ef4444;">❌ Error: ${JSON.stringify(errData)}</span><br>`;
+      return;
+    }
+    
+    const data = await res.json();
+    output.innerHTML += `<span style="color:#34d399;">✅ Success! Found ${Array.isArray(data) ? data.length : 0} codes</span><br>`;
+    output.innerHTML += `Data: ${JSON.stringify(data, null, 2)}<br>`;
+  } catch (err) {
+    output.innerHTML += `<span style="color:#ef4444;">❌ Exception: ${err.message}</span><br>`;
+  }
+};
+
+window.checkRedeemContainer = function() {
+  const output = document.getElementById('debugRedeemOutput');
+  const container = document.getElementById('redeemCodesContainer');
+  
+  output.innerHTML = 'Checking container...<br>';
+  output.innerHTML += `Container exists: ${!!container}<br>`;
+  if (container) {
+    output.innerHTML += `Container HTML: ${container.innerHTML.substring(0, 200)}...<br>`;
+  }
+};
+
+window.testAppealsAPI = async function() {
+  const output = document.getElementById('debugAppealsOutput');
+  output.innerHTML = 'Testing API...<br>';
+  
+  try {
+    output.innerHTML += `API URL: ${API}/api/admin/student-messages<br>`;
+    const res = await secureFetch(`${API}/api/admin/student-messages`);
+    output.innerHTML += `Response status: ${res?.status || 'null'}<br>`;
+    
+    if (!res) {
+      output.innerHTML += '<span style="color:#ef4444;">❌ No response from API</span><br>';
+      return;
+    }
+    
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      output.innerHTML += `<span style="color:#ef4444;">❌ Error: ${JSON.stringify(errData)}</span><br>`;
+      return;
+    }
+    
+    const data = await res.json();
+    output.innerHTML += `<span style="color:#34d399;">✅ Success! Found ${Array.isArray(data) ? data.length : 0} messages</span><br>`;
+    output.innerHTML += `Data: ${JSON.stringify(data, null, 2)}<br>`;
+  } catch (err) {
+    output.innerHTML += `<span style="color:#ef4444;">❌ Exception: ${err.message}</span><br>`;
+  }
+};
+
+window.checkAppealsContainer = function() {
+  const output = document.getElementById('debugAppealsOutput');
+  const container = document.getElementById('appealsContainer');
+  
+  output.innerHTML = 'Checking container...<br>';
+  output.innerHTML += `Container exists: ${!!container}<br>`;
+  if (container) {
+    output.innerHTML += `Container HTML: ${container.innerHTML.substring(0, 200)}...<br>`;
+  }
+};
+
+window.checkCSRFToken = function() {
+  const output = document.getElementById('debugSystemOutput');
+  output.innerHTML = 'Checking CSRF token...<br>';
+  output.innerHTML += `csrfToken variable: ${csrfToken || 'empty'}<br>`;
+  output.innerHTML += `Cookie: ${document.cookie}<br>`;
+};
+
+window.checkAuthToken = function() {
+  const output = document.getElementById('debugSystemOutput');
+  output.innerHTML = 'Checking auth token...<br>';
+  const token = getToken();
+  output.innerHTML += `Token exists: ${!!token}<br>`;
+  if (token) {
+    output.innerHTML += `Token length: ${token.length}<br>`;
+    output.innerHTML += `Token preview: ${token.substring(0, 20)}...<br>`;
+  }
+};

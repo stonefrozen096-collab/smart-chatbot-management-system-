@@ -408,6 +408,17 @@ const redeemCodeSchema = new Schema(
 );
 const RedeemCode = mongoose.model("RedeemCode", redeemCodeSchema);
 
+// SystemConfig model for feature toggles
+const systemConfigSchema = new Schema(
+  {
+    key: { type: String, unique: true, required: true },
+    value: Schema.Types.Mixed,
+    description: String,
+  },
+  { timestamps: true }
+);
+const SystemConfig = mongoose.model("SystemConfig", systemConfigSchema);
+
 // MessageTemplate model for predefined messages
 const messageTemplateSchema = new Schema(
   {
@@ -926,6 +937,74 @@ app.delete("/api/admin/redeem-codes/:codeId", authenticate, csrfProtect, async (
     res.json({ ok: true, message: "Code deleted" });
   } catch (err) {
     console.error("delete code error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ==================== FEATURE CONTROL ====================
+// Get all feature states
+app.get("/api/admin/features", authenticate, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    
+    const defaultFeatures = {
+      shop: true,
+      cosmetics: true,
+      redeemCodes: true,
+      appeals: true,
+      dailyRewards: true,
+      chat: true,
+      petDisplay: true,
+      achievements: true
+    };
+    
+    const config = await SystemConfig.findOne({ key: 'studentFeatures' });
+    const features = config ? { ...defaultFeatures, ...config.value } : defaultFeatures;
+    
+    res.json(features);
+  } catch (err) {
+    console.error("get features error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Toggle feature on/off
+app.post("/api/admin/features/toggle", authenticate, csrfProtect, async (req, res) => {
+  try {
+    if (req.student.role !== 'admin') return res.status(403).json({ error: "Forbidden" });
+    
+    const { featureName, enabled } = req.body;
+    if (!featureName) return res.status(400).json({ error: "Feature name required" });
+    
+    let config = await SystemConfig.findOne({ key: 'studentFeatures' });
+    if (!config) {
+      config = new SystemConfig({ key: 'studentFeatures', value: {} });
+    }
+    
+    config.value = config.value || {};
+    config.value[featureName] = enabled;
+    config.markModified('value');
+    await config.save();
+    
+    // Send system message to all students
+    const students = await Student.find({});
+    const status = enabled ? 'enabled' : 'disabled';
+    const featureLabel = featureName.replace(/([A-Z])/g, ' $1').trim().toLowerCase();
+    
+    await SystemMessage.create({
+      recipientRoll: 'all',
+      title: `Feature ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      content: `The ${featureLabel} feature has been ${status} by the admin.`,
+      type: 'system',
+      trigger: 'manual',
+      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000)
+    });
+    
+    io.emit("feature:toggled", { feature: featureName, enabled });
+    
+    res.json({ ok: true, message: `Feature ${featureName} ${status}`, features: config.value });
+  } catch (err) {
+    console.error("toggle feature error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

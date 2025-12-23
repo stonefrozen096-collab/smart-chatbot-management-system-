@@ -210,6 +210,8 @@
         <a onclick="showSection('messaging')"><i class="fa fa-envelope"></i> Messages</a>
         <a onclick="showSection('appeals')"><i class="fa fa-inbox"></i> Student Appeals</a>
         <a onclick="showSection('redeemCodes')"><i class="fa fa-ticket"></i> Redeem Codes</a>
+        <a onclick="showSection('featureControl')"><i class="fa fa-toggle-on"></i> Feature Control</a>
+        <a onclick="showSection('debug')"><i class="fa fa-bug"></i> Debug & Test</a>
         <a onclick="showSection('hcCurrency')"><i class="fa fa-coins"></i> HC Currency</a>
         <a onclick="showSection('rewards')"><i class="fa fa-gift"></i> Rewards</a>
         <a onclick="showSection('audit')"><i class="fa fa-history"></i> Audit Logs</a>
@@ -327,6 +329,43 @@
             <div class="card">
                 <h3>Existing Codes</h3>
                 <div id="redeemCodesContainer"><p style="opacity:0.6;">Loading codes...</p></div>
+            </div>
+        </div>
+        
+        <!-- 8d. FEATURE CONTROL -->
+        <div id="featureControl" class="section">
+            <h2>🎛️ Feature Control</h2>
+            <p style="opacity:0.8;">Enable or disable features for all students. System messages are sent automatically.</p>
+            <div class="card">
+                <h3>Student Features</h3>
+                <div id="featureTogglesContainer" style="display:grid;gap:15px;">
+                    <p style="opacity:0.6;">Loading feature states...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 8e. DEBUG & TEST -->
+        <div id="debug" class="section">
+            <h2>🐛 Debug & Test</h2>
+            <div class="card">
+                <h3>Redeem Codes</h3>
+                <button onclick="testRedeemCodeAPI()">Test API Connection</button>
+                <button onclick="window.loadRedeemCodes()">Manual Load</button>
+                <button onclick="checkRedeemContainer()">Check Container</button>
+                <div id="debugRedeemOutput" style="margin-top:10px;padding:10px;background:rgba(0,0,0,0.3);border-radius:8px;font-family:monospace;font-size:12px;max-height:200px;overflow-y:auto;"></div>
+            </div>
+            <div class="card">
+                <h3>Appeals/Messages</h3>
+                <button onclick="testAppealsAPI()">Test API Connection</button>
+                <button onclick="window.loadAppeals()">Manual Load</button>
+                <button onclick="checkAppealsContainer()">Check Container</button>
+                <div id="debugAppealsOutput" style="margin-top:10px;padding:10px;background:rgba(0,0,0,0.3);border-radius:8px;font-family:monospace;font-size:12px;max-height:200px;overflow-y:auto;"></div>
+            </div>
+            <div class="card">
+                <h3>System Info</h3>
+                <button onclick="checkCSRFToken()">Check CSRF Token</button>
+                <button onclick="checkAuthToken()">Check Auth Token</button>
+                <div id="debugSystemOutput" style="margin-top:10px;padding:10px;background:rgba(0,0,0,0.3);border-radius:8px;font-family:monospace;font-size:12px;max-height:200px;overflow-y:auto;"></div>
             </div>
         </div>
         </div>
