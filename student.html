@@ -1944,6 +1944,24 @@
   document.getElementById('settingsBtn').addEventListener('click', openCosmeticsModal);
                              </script>
 
+<!-- ============= ERUDA MOBILE CONSOLE ============= -->
+<script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/dist/eruda.min.js"></script>
+<script>
+  eruda.init();
+  // Make it compact by default - minimize on load
+  setTimeout(() => {
+    const erudaBtn = document.querySelector('[data-eruda-action="toggle-entry"]');
+    if (erudaBtn && document.querySelector('.eruda-entry')) {
+      // Keep the button visible but minimize the panel
+      const panel = document.querySelector('.eruda-panel');
+      if (panel) panel.style.display = 'none';
+    }
+  }, 500);
+  
+  // Log helpful startup info
+  console.log('%c🚀 Eruda Console Loaded', 'color: #00d4ff; font-size: 14px; font-weight: bold;');
+  console.log('%cTap the Eruda icon (bottom-right) to debug on mobile', 'color: #28a745; font-size: 12px;');
+</script>
               
 </body>
 </html>
