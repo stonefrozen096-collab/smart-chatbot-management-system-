@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Nandha Chatbot — Dashboard</title>
 
+<script src="config.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
@@ -967,6 +968,18 @@
     document.head.appendChild(style);
   }
 
+  // Global feature flags
+  let systemFeatures = {...(typeof DEFAULT_FEATURES !== 'undefined' ? DEFAULT_FEATURES : {
+    shop: true,
+    cosmetics: true,
+    redeemCodes: true,
+    appeals: true,
+    dailyRewards: true,
+    chat: true,
+    petDisplay: true,
+    achievements: true
+  })};
+
   // ---------- API CALLS ----------
   async function fetchProfile() {
     try {
@@ -982,6 +995,12 @@
 
       const data = await res.json();
       currentProfile = data;
+      
+      // Update feature flags from server
+      if (data.features) {
+        systemFeatures = { ...systemFeatures, ...data.features };
+        applyFeatureToggles();
+      }
       safeSet(displayName, data.name || data.roll || 'Unnamed');
       safeSet(displayEmail, data.email || '—');
       safeSet(displayRoll, 'Roll: ' + (data.roll || (userRoll || '—')));
@@ -1049,6 +1068,41 @@
       safeSet(displayName, 'Unnamed'); safeSet(displayEmail, '—'); safeSet(displayRoll, 'Roll: —'); safeSet(displayDept, 'Dept: —'); showLocalAvatar();
       return null;
     }
+  }
+
+  // Apply feature toggles to UI elements
+  function applyFeatureToggles() {
+    // Find all feature-dependent buttons and elements
+    const shopBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('HC Shop'));
+    const redeemBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Redeem Code'));
+    const cosmeticsBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Cosmetics'));
+    const loginRewardsCard = document.getElementById('loginRewardsCard');
+    const studentAppealCard = document.getElementById('studentAppealCard');
+    const petContainer = document.getElementById('petContainer');
+    const achievementsCard = document.getElementById('achievementsCard');
+    
+    // Shop
+    if (shopBtn) shopBtn.style.display = systemFeatures.shop ? '' : 'none';
+    
+    // Redeem Codes
+    if (redeemBtn) redeemBtn.style.display = systemFeatures.redeemCodes ? '' : 'none';
+    
+    // Cosmetics
+    if (cosmeticsBtn) cosmeticsBtn.style.display = systemFeatures.cosmetics ? '' : 'none';
+    
+    // Daily Rewards
+    if (loginRewardsCard) loginRewardsCard.style.display = systemFeatures.dailyRewards ? '' : 'none';
+    
+    // Appeals
+    if (studentAppealCard) studentAppealCard.style.display = systemFeatures.appeals ? '' : 'none';
+    
+    // Pet Display
+    if (petContainer && currentProfile?.settings?.cosmetics?.virtualPet) {
+      petContainer.style.display = systemFeatures.petDisplay ? '' : 'none';
+    }
+    
+    // Achievements
+    if (achievementsCard) achievementsCard.style.display = systemFeatures.achievements ? '' : 'none';
   }
 
   async function fetchChatHistoryAndUsage() {
@@ -1195,6 +1249,10 @@
 
   // ---------- Student Appeal Modal ----------
   function openStudentAppealModal(){
+    if (!systemFeatures.appeals) {
+      alert('🚫 Appeals feature is currently disabled by administrators.');
+      return;
+    }
     const modal = document.createElement('div');
     modal.className = 'modal-overlay active';
     modal.innerHTML = `
@@ -1222,6 +1280,10 @@
 
   // ---------- Redeem Code Modal ----------
   function openRedeemCodeModal(){
+    if (!systemFeatures.redeemCodes) {
+      alert('🚫 Redeem codes feature is currently disabled by administrators.');
+      return;
+    }
     const modal = document.createElement('div');
     modal.className = 'modal-overlay active';
     modal.innerHTML = `
@@ -1350,6 +1412,10 @@
   }
 
   async function claimDailyReward(){
+    if (!systemFeatures.dailyRewards) {
+      alert('🚫 Daily rewards feature is currently disabled by administrators.');
+      return;
+    }
     try {
       const res = await fetch(`${API}/api/daily-rewards/claim`, {
         method: 'POST',
@@ -1737,6 +1803,10 @@
   };
 
   function openCosmeticsModal() {
+    if (!systemFeatures.cosmetics) {
+      alert('🚫 Cosmetics feature is currently disabled by administrators.');
+      return;
+    }
     document.getElementById('cosmeticsModal').classList.add('active');
     renderCosmetics();
   }
@@ -1746,6 +1816,10 @@
   }
 
   function openShopModal() {
+    if (!systemFeatures.shop) {
+      alert('🚫 Shop feature is currently disabled by administrators.');
+      return;
+    }
     document.getElementById('shopModal').classList.add('active');
     renderShop();
   }

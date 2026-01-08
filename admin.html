@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Nandha Chatbot Management System — Admin Panel</title>
 
+<script src="config.js"></script>
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -336,9 +337,19 @@
         <!-- 8d. FEATURE CONTROL -->
         <div id="featureControl" class="section">
             <h2>🎛️ Feature Control</h2>
-            <p style="opacity:0.8;">Enable or disable features for all students. System messages are sent automatically.</p>
+            <p style="opacity:0.8;">Enable or disable features for all students. Changes take effect immediately for all student sessions.</p>
+            <div class="card" style="background:linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,146,60,0.1)); border-left:4px solid #f59e0b;">
+                <h3>⚠️ Important Notice</h3>
+                <p style="opacity:0.9;">When you disable a feature:</p>
+                <ul style="opacity:0.85;margin-left:20px;">
+                    <li>All students will immediately lose access to that feature</li>
+                    <li>UI buttons and sections will be hidden on student dashboards</li>
+                    <li>API endpoints will reject requests with an error message</li>
+                    <li>Students will see a notification explaining the feature is disabled</li>
+                </ul>
+            </div>
             <div class="card">
-                <h3>Student Features</h3>
+                <h3>🎮 Student Features</h3>
                 <div id="featureTogglesContainer" style="display:grid;gap:15px;">
                     <p style="opacity:0.6;">Loading feature states...</p>
                 </div>
