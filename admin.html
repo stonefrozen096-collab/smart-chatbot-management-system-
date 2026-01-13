@@ -851,20 +851,33 @@
     <!-- ============================================ -->
     <div id="audit" class="section">
         <h2>📋 Audit Logs</h2>
-        <div class="card">
-            <h3>Admin Activity History</h3>
-            <div style="max-height:500px;overflow-y:auto;border-radius:8px;background:rgba(0,0,0,0.2);padding:15px;">
-                <div id="auditLogs" style="font-size:13px;opacity:0.8;">
-                    <p>Audit logs feature coming soon...</p>
-                    <p style="opacity:0.6;">This will track all admin actions including:</p>
-                    <ul style="opacity:0.6;">
-                        <li>Student locks/unlocks</li>
-                        <li>Warnings issued</li>
-                        <li>Messages sent</li>
-                        <li>Course plan uploads</li>
-                        <li>System changes</li>
-                    </ul>
-                </div>
+        <div class="card" style="background:linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.1)); border-left:4px solid #3b82f6;">
+            <h3>📊 System Activity Monitor</h3>
+            <p style="opacity:0.85;margin-bottom:15px;">Real-time tracking of all admin actions and system changes</p>
+            
+            <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+                <button onclick="loadAuditLogs()" style="background:#3b82f6;">🔄 Refresh Logs</button>
+                <button onclick="filterAuditLogs('all')" style="background:#6366f1;">All Actions</button>
+                <button onclick="filterAuditLogs('LOCK')" style="background:#ef4444;">Locks</button>
+                <button onclick="filterAuditLogs('WARNING')" style="background:#f59e0b;">Warnings</button>
+                <button onclick="filterAuditLogs('HC')" style="background:#10b981;">HC Grants</button>
+                <button onclick="filterAuditLogs('FEATURE')" style="background:#8b5cf6;">Features</button>
+            </div>
+            
+            <div style="max-height:600px;overflow-y:auto;border-radius:10px;background:rgba(0,0,0,0.3);padding:15px;">
+                <table style="width:100%;font-size:13px;">
+                    <thead>
+                        <tr style="border-bottom:2px solid rgba(255,255,255,0.2);">
+                            <th style="padding:10px;text-align:left;">Timestamp</th>
+                            <th style="padding:10px;text-align:left;">Admin</th>
+                            <th style="padding:10px;text-align:left;">Action</th>
+                            <th style="padding:10px;text-align:left;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogsTable">
+                        <tr><td colspan="4" style="text-align:center;padding:20px;opacity:0.6;">Click "Refresh Logs" to load audit logs</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

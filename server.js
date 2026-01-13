@@ -141,6 +141,9 @@ const studentSchema = new Schema(
     loginStreak: { type: Number, default: 0 }, // Current day in 1-7 streak
     lastLoginDate: { type: Date, default: null }, // Last login date
     claimedRewardToday: { type: Boolean, default: false }, // Has claimed today's reward
+    passwordResetOTP: { type: String, default: null }, // OTP for password reset
+    otpExpiresAt: { type: Date, default: null }, // OTP expiry
+    otpVerified: { type: Boolean, default: false }, // OTP verification status
     messages: [{
       _id: mongoose.Schema.Types.ObjectId,
       type: { type: String, enum: ['appeal', 'violation-question', 'lock-appeal'], default: 'appeal' },
@@ -444,6 +447,17 @@ const auditLogSchema = new Schema(
   }
 );
 const AuditLog = mongoose.model("AuditLog", auditLogSchema);
+
+// Helper function to log audit actions
+async function logAudit(admin, action, details) {
+  try {
+    const log = new AuditLog({ admin, action, details, timestamp: new Date() });
+    await log.save();
+    console.log(`[AUDIT] ${admin} - ${action}: ${details}`);
+  } catch (err) {
+    console.error('Audit log error:', err);
+  }
+}
 
 // MessageTemplate model for predefined messages
 const messageTemplateSchema = new Schema(
@@ -1037,6 +1051,8 @@ app.post("/api/admin/features/toggle", authenticate, csrfProtect, async (req, re
     
     io.emit("feature:toggled", { feature: featureName, enabled });
     
+    await logAudit(req.student.roll, 'FEATURE_TOGGLE', `${featureName} ${status}`);
+    
     res.json({ ok: true, message: `Feature ${featureName} ${status}`, features: config.value });
   } catch (err) {
     console.error("toggle feature error:", err);
@@ -1144,6 +1160,9 @@ app.post("/api/auth/login", async (req, res) => {
     // ===== FIX 2: Add missing csrfToken variable =====
     const csrfToken = generateCsrfToken();
 
+    // Log the login
+    await logAudit(student.roll, 'LOGIN', `User logged in successfully`);
+
     // Set CSRF cookie
     res.cookie("csrf_token", csrfToken, csrfCookieOptions);
 
@@ -1209,6 +1228,112 @@ app.post("/api/auth/refresh", csrfProtect, async (req, res) => {
   }
 });
 
+// Password reset: request OTP
+app.post("/api/auth/password-reset/request", async (req, res) => {
+  try {
+    const { roll } = req.body;
+    if (!roll) return res.status(400).json({ error: "Roll number required" });
+    
+    const student = await Student.findOne({ roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    student.passwordResetOTP = otp;
+    student.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    student.otpVerified = false;
+    await student.save();
+    
+    await logAudit(roll, 'PASSWORD_RESET_REQUEST', `OTP generated for password reset`);
+    
+    res.json({ message: "OTP generated successfully", otpGenerated: true });
+  } catch (err) {
+    console.error("password reset request error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Password reset: verify identity and show OTP
+app.post("/api/auth/password-reset/verify-identity", async (req, res) => {
+  try {
+    const { roll, currentPassword } = req.body;
+    if (!roll) return res.status(400).json({ error: "Roll number required" });
+    
+    const student = await Student.findOne({ roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    
+    // Verify current password
+    const isValid = await student.verifyPassword(currentPassword);
+    if (!isValid) return res.status(401).json({ error: "Invalid password" });
+    
+    // Check if OTP exists and not expired
+    if (!student.passwordResetOTP || !student.otpExpiresAt) {
+      return res.status(400).json({ error: "No OTP request found. Please request OTP first." });
+    }
+    
+    if (new Date() > student.otpExpiresAt) {
+      return res.status(400).json({ error: "OTP expired. Please request a new one." });
+    }
+    
+    await logAudit(roll, 'PASSWORD_RESET_IDENTITY_VERIFIED', `Identity verified for password reset`);
+    
+    // Return OTP to display in-app
+    res.json({ 
+      message: "Identity verified", 
+      otp: student.passwordResetOTP,
+      expiresAt: student.otpExpiresAt 
+    });
+  } catch (err) {
+    console.error("verify identity error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Password reset: verify OTP and set new password
+app.post("/api/auth/password-reset/complete", async (req, res) => {
+  try {
+    const { roll, otp, newPassword } = req.body;
+    if (!roll || !otp || !newPassword) {
+      return res.status(400).json({ error: "All fields required" });
+    }
+    
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    
+    const student = await Student.findOne({ roll });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    
+    // Verify OTP
+    if (!student.passwordResetOTP || student.passwordResetOTP !== otp) {
+      return res.status(401).json({ error: "Invalid OTP" });
+    }
+    
+    // Check expiry
+    if (!student.otpExpiresAt || new Date() > student.otpExpiresAt) {
+      return res.status(400).json({ error: "OTP expired" });
+    }
+    
+    // Update password
+    student.passwordHash = await bcrypt.hash(newPassword, 12);
+    student.passwordResetOTP = null;
+    student.otpExpiresAt = null;
+    student.otpVerified = false;
+    
+    // Revoke all refresh tokens for security
+    student.refreshTokens = [];
+    
+    await student.save();
+    
+    await logAudit(roll, 'PASSWORD_RESET_COMPLETE', `Password reset completed successfully`);
+    
+    res.json({ message: "Password reset successful. Please login with your new password." });
+  } catch (err) {
+    console.error("password reset complete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Auth logout
 app.post("/api/auth/logout", authenticate, csrfProtect, async (req, res) => {
   try {
@@ -1223,6 +1348,7 @@ app.post("/api/auth/logout", authenticate, csrfProtect, async (req, res) => {
     }
 
     await Student.updateOne({ roll: payload.sub }, { $pull: { refreshTokens: { tokenId: payload.tid } } });
+    await logAudit(payload.sub, 'LOGOUT', `User logged out`);
     // clear csrf cookie for safety
     res.clearCookie("csrf_token");
     res.json({ ok: true });
@@ -1649,6 +1775,8 @@ app.post("/api/admin/grant-hc", authenticate, requireAdmin, csrfProtect, async (
     student.hc = (student.hc || 0) + value.amount;
     await student.save();
 
+    await logAudit(req.student.roll, 'GRANT_HC', `Granted ${value.amount} HC to ${value.roll} (New balance: ${student.hc})`);
+
     io.emit("hc:updated", { roll: student.roll, hc: student.hc });
     res.json({ ok: true, message: `Granted ${value.amount} HC to ${value.roll}`, hc: student.hc });
   } catch (err) {
@@ -1667,6 +1795,8 @@ app.post("/api/admin/broadcast-hc", authenticate, requireAdmin, csrfProtect, asy
     if (error) return res.status(400).json({ error: error.message });
 
     const result = await Student.updateMany({}, { $inc: { hc: value.amount } });
+    
+    await logAudit(req.student.roll, 'BROADCAST_HC', `Broadcast ${value.amount} HC to all students (${result.modifiedCount} students updated)`);
     
     io.emit("hc:broadcast", { amount: value.amount });
     res.json({ ok: true, message: `Broadcast ${value.amount} HC to all ${result.modifiedCount} students`, updated: result.modifiedCount });
@@ -2443,8 +2573,10 @@ app.post("/api/warning", authenticate, requireAdmin, csrfProtect, async (req, re
       await lockRecord.save();
       // Also set Redis lock (24h)
       if (redis) await setAccountLockRedis(student.roll, 24 * 3600, "auto-lock after warnings");
+      await logAudit(req.student.roll, 'AUTO_LOCK', `${value.roll} auto-locked after 3 warnings`);
     }
 
+    await logAudit(req.student.roll, 'WARNING', `${value.roll} warned (${value.level}) - ${value.reason}`);
     await student.save();
     io.emit("warning:updated", { roll: student.roll, warnings: student.warningsCount, lockedUntil: student.lockedUntil });
     res.status(201).json({ ok: true, warning });
@@ -2480,6 +2612,7 @@ app.delete("/api/warning/:id", authenticate, requireAdmin, csrfProtect, async (r
       await stu.save();
     }
 
+    await logAudit(req.student.roll, 'WARNING_REMOVED', `Removed warning from ${warn.roll} (${warn.reason})`);
     io.emit("warning:updated", { roll: warn.roll });
     res.json({ ok: true });
   } catch (err) {
@@ -2512,6 +2645,8 @@ app.post("/api/admin/lock", authenticate, requireAdmin, csrfProtect, async (req,
     // set redis lock
     if (redis) await setAccountLockRedis(value.roll, value.seconds, value.reason);
 
+    await logAudit(req.student.roll, 'LOCK_STUDENT', `Locked ${value.roll} for ${value.seconds}s - Reason: ${value.reason}`);
+
     io.emit("student:locked", { roll: value.roll, expiresAt });
     res.json({ ok: true, lock });
   } catch (err) {
@@ -2530,6 +2665,8 @@ app.post("/api/admin/unlock", authenticate, requireAdmin, csrfProtect, async (re
     const unlockRecord = new Lock({ roll: value.roll, reason: "manual-unlock", lockedBy: req.student.roll, expiresAt: new Date() });
     await unlockRecord.save();
     if (redis) await clearAccountLockRedis(value.roll);
+
+    await logAudit(req.student.roll, 'UNLOCK_STUDENT', `Unlocked ${value.roll}`);
 
     io.emit("student:unlocked", { roll: value.roll });
     res.json({ ok: true });
@@ -3031,6 +3168,7 @@ app.post("/api/super-admin/promote-admin", authenticate, requireSuperAdmin, csrf
     if (!roll) return res.status(400).json({ error: 'Roll required' });
     
     await Student.updateOne({ roll }, { role: 'admin' });
+    await logAudit(req.student.roll, 'PROMOTE', `${roll} promoted to admin`);
     res.json({ ok: true, message: 'User promoted to admin' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -3044,6 +3182,7 @@ app.post("/api/super-admin/revoke-admin", authenticate, requireSuperAdmin, csrfP
     if (!roll) return res.status(400).json({ error: 'Roll required' });
     
     await Student.updateOne({ roll }, { role: 'student' });
+    await logAudit(req.student.roll, 'REVOKE', `Admin privileges revoked from ${roll}`);
     res.json({ ok: true, message: 'Admin privileges revoked' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -3118,7 +3257,19 @@ app.post("/api/super-admin/maintenance", authenticate, requireSuperAdmin, csrfPr
 // Audit logs
 app.get("/api/super-admin/audit-logs", authenticate, requireSuperAdmin, async (req, res) => {
   try {
-    const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(100);
+    const limit = Math.min(500, parseInt(req.query.limit || "100", 10));
+    const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(limit);
+    res.json(logs || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Audit logs for admin (limited to recent actions)
+app.get("/api/admin/audit-logs", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(200, parseInt(req.query.limit || "50", 10));
+    const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(limit);
     res.json(logs || []);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

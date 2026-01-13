@@ -40,6 +40,7 @@
     <input type="text" id="loginRoll" placeholder="Roll Number or Admin ID">
     <input type="password" id="loginPassword" placeholder="Password">
     <button id="loginBtn">Login</button>
+    <div class="toggle-link" onclick="window.location.href='password-reset.html'">Forgot Password?</div>
     <div class="toggle-link" onclick="showSignup()">New user? Signup</div>
   </section>
 
@@ -94,10 +95,12 @@ loginBtn.addEventListener("click",async()=>{
     const data=await res.json();
     if(data.error) return loginError.textContent=data.error;
 
-    // store token + user info
-    sessionStorage.setItem("token",data.accessToken);
-    localStorage.setItem("token",data.accessToken); // persist for student.html
-    sessionStorage.setItem("userProfile",JSON.stringify(data.student));
+    // store tokens + user info
+    sessionStorage.setItem("token", data.accessToken);
+    localStorage.setItem("token", data.accessToken);
+    sessionStorage.setItem("refreshToken", data.refreshToken);
+    localStorage.setItem("refreshToken", data.refreshToken);
+    sessionStorage.setItem("userProfile", JSON.stringify(data.student));
 
     // verify lock status before redirect
     try {

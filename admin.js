@@ -57,13 +57,58 @@ async function secureFetch(url, options = {}) {
   options.headers['x-csrf-token'] = csrf;
   
   try {
-    const res = await fetch(url, options);
-    if (res.status === 401 || res.status === 403) {
+    let res = await fetch(url, options);
+    if (res.status === 401) {
+      // Attempt refresh token rotation
+      const rt = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+      if (rt) {
+        try {
+          if (!csrfToken) await loadCSRF();
+          const refreshRes = await fetch(`${API}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+            credentials: 'include',
+            body: JSON.stringify({ refreshToken: rt })
+          });
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            const newAccess = data.accessToken;
+            const newRefresh = data.refreshToken;
+            if (newAccess) {
+              localStorage.setItem('token', newAccess);
+              sessionStorage.setItem('token', newAccess);
+              options.headers['Authorization'] = `Bearer ${newAccess}`;
+            }
+            if (newRefresh) {
+              localStorage.setItem('refreshToken', newRefresh);
+              sessionStorage.setItem('refreshToken', newRefresh);
+            }
+            options.headers['x-csrf-token'] = data.csrfToken || csrfToken;
+            // Retry once
+            res = await fetch(url, options);
+          } else {
+            // Refresh failed; force logout
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            alert('Session expired. Please login again.');
+            window.location.href = 'index.html';
+            return null;
+          }
+        } catch (e) {
+          console.error('Refresh flow error:', e);
+          alert('Session expired. Please login again.');
+          window.location.href = 'index.html';
+          return null;
+        }
+      } else {
+        alert('Session expired. Please login again.');
+        window.location.href = 'index.html';
+        return null;
+      }
+    }
+    if (res.status === 403) {
       const data = await res.json().catch(() => ({}));
       alert(`Unauthorized: ${data.error || 'Please login again'}`);
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
-      window.location.href = 'index.html';
       return null;
     }
     return res;
@@ -1500,7 +1545,88 @@ window.toggleFeature = async function(featureName, enabled) {
 };
 
 //===============================================
-// 11. DEBUG & TEST FUNCTIONS
+// 12. AUDIT LOGS
+//===============================================
+let allAuditLogs = [];
+let currentAuditFilter = 'all';
+
+async function loadAuditLogs() {
+  try {
+    const res = await secureFetch(`${API}/api/admin/audit-logs?limit=200`);
+    if (!res || !res.ok) {
+      console.error('Failed to load audit logs');
+      return;
+    }
+    
+    allAuditLogs = await res.json();
+    renderAuditLogs(allAuditLogs);
+  } catch (err) {
+    console.error('Load audit logs error:', err);
+  }
+}
+
+window.filterAuditLogs = function(filter) {
+  currentAuditFilter = filter;
+  
+  if (filter === 'all') {
+    renderAuditLogs(allAuditLogs);
+    return;
+  }
+  
+  const filtered = allAuditLogs.filter(log => 
+    log.action.toUpperCase().includes(filter.toUpperCase())
+  );
+  renderAuditLogs(filtered);
+};
+
+function renderAuditLogs(logs) {
+  const table = document.getElementById('auditLogsTable');
+  if (!table) return;
+  
+  if (!logs || logs.length === 0) {
+    table.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;opacity:0.6;">No audit logs found</td></tr>';
+    return;
+  }
+  
+  let html = '';
+  logs.forEach(log => {
+    const timestamp = new Date(log.timestamp).toLocaleString();
+    const actionBadge = getActionBadge(log.action);
+    
+    html += `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+        <td style="padding:10px;white-space:nowrap;">${timestamp}</td>
+        <td style="padding:10px;"><strong>${escapeHTML(log.admin)}</strong></td>
+        <td style="padding:10px;">${actionBadge}</td>
+        <td style="padding:10px;opacity:0.9;">${escapeHTML(log.details)}</td>
+      </tr>
+    `;
+  });
+  
+  table.innerHTML = html;
+}
+
+function getActionBadge(action) {
+  const badges = {
+    'LOCK_STUDENT': '<span style="background:#ef4444;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🔒 LOCK</span>',
+    'UNLOCK_STUDENT': '<span style="background:#10b981;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🔓 UNLOCK</span>',
+    'ISSUE_WARNING': '<span style="background:#f59e0b;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">⚠️ WARNING</span>',
+    'GRANT_HC': '<span style="background:#10b981;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">💰 HC GRANT</span>',
+    'BROADCAST_HC': '<span style="background:#8b5cf6;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">📢 HC BROADCAST</span>',
+    'FEATURE_TOGGLE': '<span style="background:#3b82f6;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🎛️ FEATURE</span>',
+    'GRANT_COSMETIC': '<span style="background:#ec4899;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">✨ COSMETIC</span>',
+    'PASSWORD_RESET': '<span style="background:#6366f1;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🔑 PWD RESET</span>',
+    'PROMOTE_ADMIN': '<span style="background:#f97316;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">⬆️ PROMOTE</span>',
+    'REVOKE_ADMIN': '<span style="background:#ef4444;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">⬇️ REVOKE</span>',
+  };
+  
+  return badges[action] || `<span style="background:#64748b;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">${escapeHTML(action)}</span>`;
+}
+
+window.loadAuditLogs = loadAuditLogs;
+
+//===============================================
+// 13. INIT
 //===============================================
 window.testRedeemCodeAPI = async function() {
   const output = document.getElementById('debugRedeemOutput');

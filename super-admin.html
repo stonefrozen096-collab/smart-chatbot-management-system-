@@ -347,16 +347,39 @@
     <div id="audit" class="section">
         <h2>📋 Complete Audit Trail</h2>
 
-        <div class="card">
-            <h3>Filter Logs</h3>
-            <input type="text" id="auditFilter" placeholder="Filter by user, action, or date">
-            <button onclick="loadAuditLogs()">🔍 Refresh Logs</button>
+        <div class="card" style="background:linear-gradient(135deg, rgba(255,51,51,0.15), rgba(255,102,102,0.1)); border-left:4px solid #ff3333;">
+            <h3>🔍 Filter & Search</h3>
+            <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+                <input type="text" id="auditFilter" placeholder="Search by admin, action, or details" style="flex:1;min-width:300px;">
+                <button onclick="loadAuditLogs()" style="background:#ff3333;">🔄 Refresh Logs</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="filterSuperAuditLogs('all')" style="background:#6366f1;padding:8px 12px;">All</button>
+                <button onclick="filterSuperAuditLogs('LOCK')" style="background:#ef4444;padding:8px 12px;">Locks</button>
+                <button onclick="filterSuperAuditLogs('WARNING')" style="background:#f59e0b;padding:8px 12px;">Warnings</button>
+                <button onclick="filterSuperAuditLogs('HC')" style="background:#10b981;padding:8px 12px;">HC</button>
+                <button onclick="filterSuperAuditLogs('PROMOTE')" style="background:#f97316;padding:8px 12px;">Promotions</button>
+                <button onclick="filterSuperAuditLogs('FEATURE')" style="background:#8b5cf6;padding:8px 12px;">Features</button>
+                <button onclick="filterSuperAuditLogs('PASSWORD')" style="background:#6366f1;padding:8px 12px;">Password</button>
+            </div>
         </div>
 
         <div class="card">
-            <h3>System Activity</h3>
-            <div id="auditLogsContainer" style="max-height: 500px; overflow-y: auto;">
-                <p style="opacity: 0.6;">Loading audit logs...</p>
+            <h3>📊 System Activity Log (Last 500 Actions)</h3>
+            <div id="auditLogsContainer" style="max-height: 600px; overflow-y: auto; background:rgba(0,0,0,0.3); padding:15px; border-radius:10px;">
+                <table style="width:100%;font-size:13px;">
+                    <thead>
+                        <tr style="border-bottom:2px solid rgba(255,255,255,0.3);">
+                            <th style="padding:10px;text-align:left;">Timestamp</th>
+                            <th style="padding:10px;text-align:left;">Admin/User</th>
+                            <th style="padding:10px;text-align:left;">Action Type</th>
+                            <th style="padding:10px;text-align:left;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="superAuditLogsTable">
+                        <tr><td colspan="4" style="text-align:center;padding:30px;opacity:0.6;">Click "Refresh Logs" to load complete audit trail</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -640,18 +663,59 @@ async function checkSystemHealth() {
   }
 }
 
+let allSuperAuditLogs = [];
+
+function getActionBadge(action) {
+  const badges = {
+    'LOCK': { color: '#ef4444', label: '🔒 Lock' },
+    'UNLOCK': { color: '#10b981', label: '🔓 Unlock' },
+    'WARNING': { color: '#f59e0b', label: '⚠️ Warning' },
+    'HC': { color: '#10b981', label: '✓ HC' },
+    'PROMOTE': { color: '#f97316', label: '📈 Promote' },
+    'FEATURE': { color: '#8b5cf6', label: '⚙️ Feature' },
+    'PASSWORD': { color: '#6366f1', label: '🔑 Password' },
+    'LOGIN': { color: '#3b82f6', label: '🔓 Login' },
+    'LOGOUT': { color: '#6b7280', label: '🚪 Logout' }
+  };
+  const badge = badges[action] || { color: '#6b7280', label: action };
+  return `<span style="background:${badge.color};color:white;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;">${badge.label}</span>`;
+}
+
 async function loadAuditLogs() {
-  const res = await secureFetch(`${API}/api/super-admin/audit-logs`);
-  if (!res || !res.ok) return;
+  const res = await secureFetch(`${API}/api/super-admin/audit-logs?limit=500`);
+  if (!res || !res.ok) {
+    document.getElementById('superAuditLogsTable').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">❌ Failed to load audit logs</td></tr>';
+    return;
+  }
   
-  const logs = await res.json();
-  const container = document.getElementById('auditLogsContainer');
-  container.innerHTML = logs.slice(0, 50).map(log => `
-    <div style="padding: 12px; background: rgba(255,0,0,0.05); border-left: 3px solid #ff6666; margin: 8px 0; border-radius: 4px;">
-      <strong>${log.action}</strong> by ${log.admin}<br>
-      <span style="opacity: 0.7; font-size: 12px;">${new Date(log.timestamp).toLocaleString()}</span>
-    </div>
+  allSuperAuditLogs = await res.json();
+  renderSuperAuditLogs(allSuperAuditLogs);
+}
+
+function renderSuperAuditLogs(logs) {
+  const table = document.getElementById('superAuditLogsTable');
+  if (!logs || logs.length === 0) {
+    table.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">📭 No audit logs found</td></tr>';
+    return;
+  }
+  
+  table.innerHTML = logs.map(log => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);hover:background:rgba(255,255,255,0.05);">
+      <td style="padding:10px;white-space:nowrap;">${new Date(log.timestamp).toLocaleString()}</td>
+      <td style="padding:10px;">${log.admin || 'System'}</td>
+      <td style="padding:10px;">${getActionBadge(log.action)}</td>
+      <td style="padding:10px;font-size:12px;opacity:0.8;">${log.details || 'N/A'}</td>
+    </tr>
   `).join('');
+}
+
+function filterSuperAuditLogs(filter) {
+  if (filter === 'all') {
+    renderSuperAuditLogs(allSuperAuditLogs);
+  } else {
+    const filtered = allSuperAuditLogs.filter(log => log.action === filter);
+    renderSuperAuditLogs(filtered);
+  }
 }
 
 async function initSuperAdmin() {
