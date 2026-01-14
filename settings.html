@@ -214,6 +214,23 @@
       </div>
     </div>
 
+    <!-- Secret Code Section -->
+    <div class="setting-section" style="background:rgba(255,255,255,0.15);padding:15px;border-radius:12px;border-left:4px solid #667eea;">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;">
+        🔐 Your Secret Code
+      </label>
+      <p style="font-size:12px;opacity:0.9;margin:8px 0;">
+        This code is used for password recovery. Keep it safe and never share it!
+      </p>
+      <div style="display:flex;align-items:center;gap:10px;margin:12px 0;">
+        <input type="text" id="secretCodeDisplay" readonly style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.2);color:#fff;font-weight:600;letter-spacing:2px;" placeholder="Loading...">
+        <button id="toggleSecretCodeBtn" style="padding:10px 12px;border-radius:8px;border:none;background:rgba(255,255,255,0.3);color:#fff;cursor:pointer;font-size:16px;" title="Show/Hide">👁️</button>
+      </div>
+      <button id="regenerateSecretCodeBtn" class="btn" style="width:100%;margin-top:10px;background:rgba(102,126,234,0.7);">
+        🔄 Regenerate Secret Code
+      </button>
+    </div>
+
     <button class="btn" id="saveBtn">Save Settings</button>
     <p id="saveMsg"></p>
 
@@ -628,6 +645,85 @@
     localStorage.clear();
     window.location.href = "index.html";
   });
+
+  // Load and display secret code
+  async function loadSecretCode() {
+    try {
+      const token = readStoredToken();
+      const csrfRes = await fetch(`${API}/api/csrf-token`, { credentials: "include" });
+      const csrfData = await csrfRes.json();
+      
+      const res = await fetch(`${API}/api/student/secret-code`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-csrf-token": csrfData.csrfToken
+        },
+        credentials: "include"
+      });
+      
+      const data = await res.json();
+      if (data.secretCode) {
+        document.getElementById('secretCodeDisplay').value = data.secretCode;
+        // Mask it by default
+        document.getElementById('secretCodeDisplay').type = 'password';
+      }
+    } catch (err) {
+      console.error("Failed to load secret code:", err);
+      document.getElementById('secretCodeDisplay').value = "Error loading";
+    }
+  }
+
+  // Toggle secret code visibility
+  document.getElementById('toggleSecretCodeBtn').addEventListener('click', () => {
+    const input = document.getElementById('secretCodeDisplay');
+    const btn = document.getElementById('toggleSecretCodeBtn');
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁️';
+    }
+  });
+
+  // Regenerate secret code
+  document.getElementById('regenerateSecretCodeBtn').addEventListener('click', async () => {
+    if (!confirm('⚠️ This will generate a new secret code. Your old code will no longer work. Continue?')) {
+      return;
+    }
+    
+    try {
+      const token = readStoredToken();
+      const csrfRes = await fetch(`${API}/api/csrf-token`, { credentials: "include" });
+      const csrfData = await csrfRes.json();
+      
+      const res = await fetch(`${API}/api/student/regenerate-secret-code`, {
+        method: 'POST',
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "x-csrf-token": csrfData.csrfToken
+        },
+        credentials: "include"
+      });
+      
+      const data = await res.json();
+      if (data.secretCode) {
+        document.getElementById('secretCodeDisplay').value = data.secretCode;
+        document.getElementById('secretCodeDisplay').type = 'text';
+        document.getElementById('toggleSecretCodeBtn').textContent = '🙈';
+        alert('✅ Secret code regenerated successfully!\n\n📌 New Secret Code: ' + data.secretCode + '\n\nPlease save it somewhere safe!');
+      } else {
+        alert('Error regenerating secret code');
+      }
+    } catch (err) {
+      console.error("Failed to regenerate:", err);
+      alert('Error regenerating secret code');
+    }
+  });
+
+  // Load secret code on page load
+  window.addEventListener('load', loadSecretCode);
   </script>
 
 </body>

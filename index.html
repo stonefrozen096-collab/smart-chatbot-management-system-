@@ -163,7 +163,9 @@ signupBtn.addEventListener("click",async()=>{
     });
     const data=await res.json();
     if(data.error) return signupError.textContent=data.error;
-    alert("Signup successful! Please login."); showLogin();
+    const secretCode = data.secretCode;
+    alert(`🎉 Signup successful!\n\n📌 Your Secret Code: ${secretCode}\n\nPlease save this code - it's needed for password recovery!\n\nYou can always find it in your settings.`);
+    showLogin();
   }catch{signupError.textContent="Server error, try later.";}
 });
 </script>

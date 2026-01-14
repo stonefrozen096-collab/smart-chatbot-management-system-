@@ -144,6 +144,7 @@ const studentSchema = new Schema(
     passwordResetOTP: { type: String, default: null }, // OTP for password reset
     otpExpiresAt: { type: Date, default: null }, // OTP expiry
     otpVerified: { type: Boolean, default: false }, // OTP verification status
+    secretCode: { type: String, default: null }, // Secret code for password reset verification
     messages: [{
       _id: mongoose.Schema.Types.ObjectId,
       type: { type: String, enum: ['appeal', 'violation-question', 'lock-appeal'], default: 'appeal' },
@@ -1080,7 +1081,11 @@ app.post("/api/auth/register", csrfProtect, async (req, res) => {
     if (existing) return res.status(409).json({ error: "Roll already registered" });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const student = new Student({ roll, name, dept, cls, role, email: email || "", passwordHash });
+    
+    // Generate unique secret code (8 alphanumeric characters)
+    const secretCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+    
+    const student = new Student({ roll, name, dept, cls, role, email: email || "", passwordHash, secretCode });
     await student.save();
 
     // Use an atomic update to add refresh token (avoid VersionError)
@@ -1108,6 +1113,7 @@ app.post("/api/auth/register", csrfProtect, async (req, res) => {
       accessToken,
       refreshToken,
       csrfToken,
+      secretCode: student.secretCode,
       student: { roll: student.roll, name: student.name, dept: student.dept, cls: student.cls },
     });
   } catch (err) {
@@ -1256,15 +1262,16 @@ app.post("/api/auth/password-reset/request", async (req, res) => {
 // Password reset: verify identity and show OTP
 app.post("/api/auth/password-reset/verify-identity", async (req, res) => {
   try {
-    const { roll, currentPassword } = req.body;
-    if (!roll) return res.status(400).json({ error: "Roll number required" });
+    const { roll, secretCode } = req.body;
+    if (!roll || !secretCode) return res.status(400).json({ error: "Roll number and secret code required" });
     
     const student = await Student.findOne({ roll });
     if (!student) return res.status(404).json({ error: "Student not found" });
     
-    // Verify current password
-    const isValid = await student.verifyPassword(currentPassword);
-    if (!isValid) return res.status(401).json({ error: "Invalid password" });
+    // Verify secret code
+    if (student.secretCode !== secretCode) {
+      return res.status(401).json({ error: "Invalid secret code" });
+    }
     
     // Check if OTP exists and not expired
     if (!student.passwordResetOTP || !student.otpExpiresAt) {
@@ -1275,7 +1282,7 @@ app.post("/api/auth/password-reset/verify-identity", async (req, res) => {
       return res.status(400).json({ error: "OTP expired. Please request a new one." });
     }
     
-    await logAudit(roll, 'PASSWORD_RESET_IDENTITY_VERIFIED', `Identity verified for password reset`);
+    await logAudit(roll, 'PASSWORD_RESET_IDENTITY_VERIFIED', `Identity verified for password reset using secret code`);
     
     // Return OTP to display in-app
     res.json({ 
@@ -1434,6 +1441,42 @@ app.get("/api/me", authenticate, csrfProtect, async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error("get me error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get secret code for password reset
+app.get("/api/student/secret-code", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const student = await Student.findOne({ roll: req.student.roll }).select("secretCode");
+    if (!student || !student.secretCode) {
+      return res.status(404).json({ error: "Secret code not found" });
+    }
+    res.json({ secretCode: student.secretCode });
+  } catch (err) {
+    console.error("get secret code error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Regenerate secret code
+app.post("/api/student/regenerate-secret-code", authenticate, csrfProtect, async (req, res) => {
+  try {
+    const newSecretCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+    const student = await Student.findOneAndUpdate(
+      { roll: req.student.roll },
+      { secretCode: newSecretCode },
+      { new: true }
+    ).select("secretCode");
+    
+    await logAudit(req.student.roll, 'SECRET_CODE_REGENERATED', `New secret code generated`);
+    
+    res.json({ 
+      message: "Secret code regenerated", 
+      secretCode: student.secretCode 
+    });
+  } catch (err) {
+    console.error("regenerate secret code error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
