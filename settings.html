@@ -383,69 +383,6 @@
       </div>
     </div>
 
-    <!-- Appearance Section -->
-    <div class="section" id="appearanceSection" style="display: none;">
-      <div class="section-title">🎨 Appearance</div>
-      
-      <div class="setting-item">
-        <label>Theme</label>
-        <select id="themeSelect">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="auto">Auto</option>
-        </select>
-      </div>
-
-      <div class="setting-item">
-        <label>Font Size</label>
-        <select id="fontSizeSelect">
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Notifications Section -->
-    <div class="section" id="notificationsSection" style="display: none;">
-      <div class="section-title">🔔 Notifications</div>
-      
-      <div class="setting-item">
-        <label>Enable Notifications</label>
-        <input type="checkbox" id="notificationsToggle" checked>
-      </div>
-
-      <div class="setting-item">
-        <label>Sound Effects</label>
-        <input type="checkbox" id="soundToggle" checked>
-      </div>
-
-      <div class="setting-item">
-        <label>Desktop Alerts</label>
-        <input type="checkbox" id="desktopAlertsToggle">
-      </div>
-    </div>
-
-    <!-- Privacy Section -->
-    <div class="section" id="privacySection" style="display: none;">
-      <div class="section-title">🔒 Privacy</div>
-      
-      <div class="setting-item">
-        <label>Public Profile</label>
-        <input type="checkbox" id="publicProfileToggle">
-      </div>
-
-      <div class="setting-item">
-        <label>Show Activity Status</label>
-        <input type="checkbox" id="activityStatusToggle" checked>
-      </div>
-
-      <div class="setting-item">
-        <label>Allow Messages</label>
-        <input type="checkbox" id="allowMessagesToggle" checked>
-      </div>
-    </div>
-
     <!-- Account Section -->
     <div class="section" id="accountSection" style="display: none;">
       <div class="section-title">👤 Account</div>
@@ -467,10 +404,6 @@
 
     <!-- Action Buttons -->
     <div style="margin-top: 25px;">
-      <button class="btn btn-primary" id="saveSettingsBtn">
-        <i class="fas fa-save"></i> Save Settings
-      </button>
-      
       <button class="btn btn-secondary" id="logoutBtn">
         <i class="fas fa-sign-out-alt"></i> Logout
       </button>
@@ -489,7 +422,7 @@ const API = 'https://smart-chatbot-backend-w5tq.onrender.com';
 // ==================== UTILITY FUNCTIONS ====================
 
 function getToken() {
-  return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+  return localStorage.getItem('token') || sessionStorage.getItem('token');
 }
 
 function showMessage(message, type) {
@@ -526,9 +459,6 @@ async function loadSettings() {
     document.getElementById('loadingMessage').style.display = 'none';
     document.getElementById('profileSection').style.display = 'block';
     document.getElementById('secretCodeSection').style.display = 'block';
-    document.getElementById('appearanceSection').style.display = 'block';
-    document.getElementById('notificationsSection').style.display = 'block';
-    document.getElementById('privacySection').style.display = 'block';
     document.getElementById('accountSection').style.display = 'block';
 
     // Set profile info
@@ -539,15 +469,6 @@ async function loadSettings() {
     document.getElementById('profileHC').textContent = student.hc || 0;
     document.getElementById('profileStatus').textContent = student.locked ? '🔒 Locked' : '✅ Active';
     document.getElementById('emailInput').value = student.email || '-';
-
-    // Load settings
-    const settings = student.settings || {};
-    document.getElementById('themeSelect').value = settings.theme || 'light';
-    document.getElementById('fontSizeSelect').value = settings.fontSize || 'medium';
-    document.getElementById('notificationsToggle').checked = settings.notifications !== false;
-    document.getElementById('publicProfileToggle').checked = settings.publicProfile !== false;
-    document.getElementById('activityStatusToggle').checked = settings.activityStatus !== false;
-    document.getElementById('allowMessagesToggle').checked = settings.allowMessages !== false;
 
     // Load secret code
     await loadSecretCode();
@@ -626,39 +547,6 @@ document.getElementById('regenerateSecretCodeBtn').addEventListener('click', asy
 });
 
 // ==================== SAVE SETTINGS ====================
-
-document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
-  try {
-    const token = getToken();
-    const settings = {
-      theme: document.getElementById('themeSelect').value,
-      fontSize: document.getElementById('fontSizeSelect').value,
-      notifications: document.getElementById('notificationsToggle').checked,
-      publicProfile: document.getElementById('publicProfileToggle').checked,
-      activityStatus: document.getElementById('activityStatusToggle').checked,
-      allowMessages: document.getElementById('allowMessagesToggle').checked
-    };
-
-    const res = await fetch(`${API}/api/student/settings`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify(settings)
-    });
-
-    if (res.ok) {
-      showMessage('✅ Settings saved successfully!', 'success');
-    } else {
-      showMessage('Failed to save settings', 'error');
-    }
-  } catch (err) {
-    console.error('Save settings error:', err);
-    showMessage('Error saving settings', 'error');
-  }
-});
 
 // ==================== ACCOUNT ACTIONS ====================
 

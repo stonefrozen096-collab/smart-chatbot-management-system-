@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creator Control Center</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: radial-gradient(circle at 10% 20%, #0f172a 0%, #020617 40%, #000000 100%);
+      --panel: rgba(255,255,255,0.06);
+      --panel-border: rgba(255,255,255,0.16);
+      --muted: rgba(255,255,255,0.7);
+      --accent: #22d3ee;
+      --accent-2: #a855f7;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Poppins", sans-serif;
+      background: var(--bg);
+      color: #fff;
+    }
+    header {
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .title-block h1 { margin: 0; font-size: 28px; letter-spacing: 0.5px; }
+    .title-block p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      color: #fff;
+    }
+    button:hover { transform: translateY(-1px); }
+    .btn-primary { background: linear-gradient(135deg, #22d3ee, #3b82f6); box-shadow: 0 10px 30px rgba(34,211,238,0.25); }
+    .btn-secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); color: #e2e8f0; }
+    .btn-danger { background: linear-gradient(135deg, #ef4444, #f97316); box-shadow: 0 10px 30px rgba(239,68,68,0.25); }
+
+    .grid { display: grid; gap: 16px; padding: 0 24px 24px; }
+    .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    }
+    .card h3 { margin: 0 0 12px; font-size: 16px; letter-spacing: 0.4px; color: #e2e8f0; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .stat-value { font-size: 26px; font-weight: 700; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--panel-border); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
+
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot-danger { background: #ef4444; }
+    .dot-success { background: #22c55e; }
+    .dot-warn { background: #f59e0b; }
+
+    .log-list { max-height: 320px; overflow: auto; }
+    .log-item { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .log-item strong { color: #e2e8f0; }
+
+    @media (max-width: 720px) {
+      header { flex-direction: column; align-items: flex-start; }
+      .actions { width: 100%; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title-block">
+      <h1>Creator Control Center</h1>
+      <p>Ultimate oversight for the entire system. Every signal, every toggle, every log.</p>
+    </div>
+    <div class="actions">
+      <button id="btnRefresh" class="btn-secondary">🔄 Refresh Data</button>
+      <button id="btnLogout" class="btn-secondary">🚪 Logout</button>
+      <button id="btnBack" class="btn-secondary">↩️ Back to Login</button>
+    </div>
+  </header>
+
+  <div class="grid cols-3" id="statsGrid">
+    <div class="card">
+      <h3>👥 Users</h3>
+      <div class="stat-value" id="totalUsers">--</div>
+      <div class="muted" id="roleBreakdown">Admins: -- | Mods: -- | Teachers: -- | Creators: --</div>
+    </div>
+    <div class="card">
+      <h3>🔒 Locks</h3>
+      <div class="stat-value" id="lockedCount">--</div>
+      <div class="muted">Accounts locked across the system</div>
+    </div>
+    <div class="card">
+      <h3>⚠️ Warnings</h3>
+      <div class="stat-value" id="warningsCount">--</div>
+      <div class="muted">Total disciplinary warnings issued</div>
+    </div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>💬 Chatbot Authority</h3>
+      <div class="muted" id="chatbotStatusText">Loading chatbot status…</div>
+      <div style="display:flex; gap:10px; margin-top:12px; flex-wrap: wrap;">
+        <button id="btnEnableChatbot" class="btn-primary">✅ Enable</button>
+        <button id="btnDisableChatbot" class="btn-secondary">⏸️ Disable</button>
+        <button id="btnRemoveChatbot" class="btn-danger">🛑 Remove Access</button>
+      </div>
+      <div style="margin-top:12px;">
+        <textarea id="chatbotMessage" rows="2" placeholder="Optional message shown to users when disabled" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--panel-border); background: rgba(0,0,0,0.2); color:#fff;"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🛡️ Maintenance Mode</h3>
+      <div class="muted" id="maintenanceStatus">Loading maintenance state…</div>
+      <div style="display:flex; gap:10px; margin-top:12px; flex-wrap: wrap;">
+        <button id="btnMaintenanceOn" class="btn-secondary">🟠 Enable Maintenance</button>
+        <button id="btnMaintenanceOff" class="btn-primary">🟢 Disable Maintenance</button>
+      </div>
+      <div style="margin-top:12px;">
+        <textarea id="maintenanceMessage" rows="2" placeholder="Message shown when maintenance is enabled" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--panel-border); background: rgba(0,0,0,0.2); color:#fff;"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>📜 Audit Stream</h3>
+      <div class="log-list" id="auditList">Loading…</div>
+    </div>
+    <div class="card">
+      <h3>🔐 PIN Activity</h3>
+      <div class="log-list" id="pinLog">Loading…</div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://smart-chatbot-backend-w5tq.onrender.com';
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) window.location.href = 'index.html';
+    if (sessionStorage.getItem('creatorPinVerified') !== 'true') window.location.href = 'creator-pin.html';
+
+    function getCookie(name) {
+      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? v.pop() : '';
+    }
+
+    async function api(path, options = {}) {
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        'x-csrf-token': getCookie('csrf_token') || ''
+      };
+      const res = await fetch(`${API}${path}`, {
+        credentials: 'include',
+        ...options,
+        headers: { ...headers, ...(options.headers || {}) }
+      });
+      if (res.status === 401 || res.status === 403) {
+        alert('Session expired or unauthorized.');
+        window.location.href = 'index.html';
+        return null;
+      }
+      return res;
+    }
+
+    async function loadOverview() {
+      const res = await api('/api/creator/overview');
+      if (!res) return;
+      const data = await res.json();
+      document.getElementById('totalUsers').textContent = data.totals.students;
+      document.getElementById('roleBreakdown').textContent = `Admins: ${data.totals.admins} | Mods: ${data.totals.moderators} | Teachers: ${data.totals.teachers} | Creators: ${data.totals.creators}`;
+      document.getElementById('lockedCount').textContent = data.locks.lockedAccounts;
+      document.getElementById('warningsCount').textContent = data.warnings;
+      updateChatbotStatus(data.chatbot || {});
+      updateMaintenanceStatus(data.maintenance || {});
+    }
+
+    function updateChatbotStatus(cfg) {
+      const statusEl = document.getElementById('chatbotStatusText');
+      if (cfg.removed) {
+        statusEl.innerHTML = `<span class="pill"><span class="status-dot dot-danger"></span>Permanently removed</span> ${cfg.message || ''}`;
+        disableChatbotButtons(true);
+      } else if (cfg.disabled) {
+        statusEl.innerHTML = `<span class="pill"><span class="status-dot dot-warn"></span>Disabled</span> ${cfg.message || ''}`;
+      } else {
+        statusEl.innerHTML = `<span class="pill"><span class="status-dot dot-success"></span>Active</span> ${cfg.message || ''}`;
+      }
+    }
+
+    function disableChatbotButtons(disabled) {
+      document.getElementById('btnEnableChatbot').disabled = disabled;
+      document.getElementById('btnDisableChatbot').disabled = disabled;
+    }
+
+    function updateMaintenanceStatus(m) {
+      const el = document.getElementById('maintenanceStatus');
+      if (m.enabled) {
+        el.innerHTML = `<span class="pill"><span class="status-dot dot-warn"></span>Enabled</span> ${m.message || ''}`;
+      } else {
+        el.innerHTML = `<span class="pill"><span class="status-dot dot-success"></span>Disabled</span> ${m.message || ''}`;
+      }
+    }
+
+    async function toggleChatbot(disabled) {
+      const message = document.getElementById('chatbotMessage').value.trim();
+      const res = await api('/api/creator/chatbot-config', {
+        method: 'POST',
+        body: JSON.stringify({ disabled, message })
+      });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Failed to update'); return; }
+      updateChatbotStatus(data.value);
+      alert(disabled ? 'Chatbot disabled' : 'Chatbot enabled');
+    }
+
+    async function removeChatbot() {
+      if (!confirm('This permanently removes chatbot access. Continue?')) return;
+      const message = document.getElementById('chatbotMessage').value.trim();
+      const res = await api('/api/creator/chatbot-remove', {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true, message })
+      });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Failed to remove'); return; }
+      updateChatbotStatus(data.value);
+      disableChatbotButtons(true);
+      alert('Chatbot access removed.');
+    }
+
+    async function setMaintenance(enabled) {
+      const message = document.getElementById('maintenanceMessage').value.trim();
+      const res = await api('/api/super-admin/maintenance', {
+        method: 'POST',
+        body: JSON.stringify({ enabled, message })
+      });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Failed'); return; }
+      updateMaintenanceStatus({ enabled, message });
+      alert(enabled ? 'Maintenance enabled' : 'Maintenance disabled');
+    }
+
+    async function loadAuditLogs() {
+      const res = await api('/api/super-admin/audit-logs?limit=200');
+      if (!res) return;
+      const logs = await res.json();
+      const auditList = document.getElementById('auditList');
+      const pinList = document.getElementById('pinLog');
+      auditList.innerHTML = '';
+      pinList.innerHTML = '';
+
+      logs.forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'log-item';
+        item.innerHTML = `<strong>${log.action}</strong> — ${log.details}<br><span class="muted">${new Date(log.timestamp).toLocaleString()} • by ${log.admin}</span>`;
+        auditList.appendChild(item);
+        if (log.action && log.action.toLowerCase().includes('creator_pin')) {
+          const p = item.cloneNode(true);
+          pinList.appendChild(p);
+        }
+      });
+    }
+
+    document.getElementById('btnEnableChatbot').addEventListener('click', () => toggleChatbot(false));
+    document.getElementById('btnDisableChatbot').addEventListener('click', () => toggleChatbot(true));
+    document.getElementById('btnRemoveChatbot').addEventListener('click', removeChatbot);
+    document.getElementById('btnMaintenanceOn').addEventListener('click', () => setMaintenance(true));
+    document.getElementById('btnMaintenanceOff').addEventListener('click', () => setMaintenance(false));
+    document.getElementById('btnRefresh').addEventListener('click', () => { loadOverview(); loadAuditLogs(); });
+    document.getElementById('btnLogout').addEventListener('click', () => { localStorage.clear(); sessionStorage.clear(); window.location.href = 'index.html'; });
+    document.getElementById('btnBack').addEventListener('click', () => { window.location.href = 'index.html'; });
+
+    // Init
+    loadOverview();
+    loadAuditLogs();
+  </script>
+</body>
+</html>

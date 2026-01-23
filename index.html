@@ -128,7 +128,9 @@ loginBtn.addEventListener("click",async()=>{
 
     // redirect by role
     const role = data.student.role;
-    if (role === "super_admin") {
+    if (role === "creator") {
+      window.location.href = "creator-pin.html";
+    } else if (role === "super_admin") {
       window.location.href = "super-admin.html";
     } else if (role === "admin") {
       window.location.href = "admin.html";
