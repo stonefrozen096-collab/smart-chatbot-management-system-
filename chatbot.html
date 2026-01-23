@@ -15,6 +15,31 @@ body {
   color:#fff;
   transition: background 0.5s;
 }
+
+.blocker {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  text-align: center;
+  padding: 20px;
+}
+
+.blocker-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.blocker-title { font-size: 20px; margin-bottom: 10px; }
+.blocker-message { font-size: 14px; opacity: 0.9; }
 .sidebar {
   width:220px;
   background: rgba(0,0,0,0.2);
@@ -110,6 +135,13 @@ body {
 </style>
 </head>
 <body>
+
+<div id="chatbotBlocker" class="blocker">
+  <div class="blocker-card">
+    <div class="blocker-title">⏸️ Chatbot disabled</div>
+    <div class="blocker-message">This page is currently unavailable.</div>
+  </div>
+</div>
 
 <!-- HISTORY SIDEBAR -->
 <div class="sidebar">

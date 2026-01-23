@@ -52,9 +52,13 @@ let studentProfile = null;
 let chatLock = false;
 let warningsCount = 0;
 let lastBotMessage = "";
+let chatbotBlocked = false;
 
 // ==================== INITIAL LOAD ====================
 window.addEventListener("DOMContentLoaded", async () => {
+  const available = await ensureChatbotAvailability();
+  if (!available) return;
+
   await loadProfile();
   await applyBackgroundColor();
   await loadChatHistory();
@@ -63,6 +67,38 @@ window.addEventListener("DOMContentLoaded", async () => {
   initSocket();
   setInterval(fetchWarningsAndLock, 12000); // fallback
 });
+
+async function ensureChatbotAvailability() {
+  try {
+    const res = await fetch(`${API_URL}/api/system/chatbot-config`);
+    if (!res.ok) return true; // fail open but log
+    const data = await res.json();
+    if (data.removed) {
+      showBlocker('🚫 Chatbot access permanently removed by creator.', data.message);
+      chatbotBlocked = true;
+      return false;
+    }
+    if (data.disabled) {
+      showBlocker('⏸️ Chatbot temporarily disabled', data.message);
+      chatbotBlocked = true;
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('chatbot availability check failed:', err);
+    return true;
+  }
+}
+
+function showBlocker(title, message) {
+  const blocker = document.getElementById('chatbotBlocker');
+  if (!blocker) return;
+  blocker.querySelector('.blocker-title').textContent = title;
+  blocker.querySelector('.blocker-message').textContent = message || 'This page is currently unavailable.';
+  blocker.style.display = 'flex';
+  if (sendBtn) sendBtn.disabled = true;
+  if (chatInput) chatInput.disabled = true;
+}
 
 // ==================== PROFILE ====================
 async function loadProfile() {

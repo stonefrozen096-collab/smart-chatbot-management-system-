@@ -128,7 +128,7 @@ const studentSchema = new Schema(
     cls: String,
     email: { type: String, default: "" },
     passwordHash: { type: String, default: null },
-    role: { type: String, enum: ["student", "admin", "super_admin", "moderator", "teacher"], default: "student" },
+    role: { type: String, enum: ["student", "admin", "super_admin", "moderator", "teacher", "creator"], default: "student" },
     avatarUrl: { type: String, default: "" },
     bgColor: { type: String, default: "linear-gradient(135deg,#0077ff,#00d4ff)" },
     warningsCount: { type: Number, default: 0 },
@@ -547,6 +547,80 @@ async function clearAccountLockRedis(roll) {
   return await redis.del(`account-lock:${roll}`);
 }
 
+// Creator/Owner helper
+function isCreator(student) {
+  if (!student) return false;
+  if (student.role === "creator") return true;
+  if (process.env.CREATOR_ROLL && student.roll === process.env.CREATOR_ROLL) return true;
+  return false;
+}
+
+// Creator PIN attempt tracking (Redis preferred, in-memory fallback)
+const localPinAttempts = new Map();
+const localPinBans = new Map();
+
+function cleanupLocalPinMaps() {
+  const now = Date.now();
+  for (const [roll, data] of localPinAttempts.entries()) {
+    if (data.expiresAt <= now) localPinAttempts.delete(roll);
+  }
+  for (const [roll, expiresAt] of localPinBans.entries()) {
+    if (expiresAt <= now) localPinBans.delete(roll);
+  }
+}
+
+async function getPinAttempts(roll) {
+  if (redis) {
+    const val = await redis.get(`creator:pin:attempts:${roll}`);
+    return parseInt(val || "0", 10);
+  }
+  cleanupLocalPinMaps();
+  return localPinAttempts.get(roll)?.count || 0;
+}
+
+async function incrementPinAttempts(roll) {
+  if (redis) {
+    const key = `creator:pin:attempts:${roll}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, 3600); // 1 hour window
+    return count;
+  }
+  cleanupLocalPinMaps();
+  const existing = localPinAttempts.get(roll);
+  const next = existing ? existing.count + 1 : 1;
+  localPinAttempts.set(roll, { count: next, expiresAt: Date.now() + 3600_000 });
+  return next;
+}
+
+async function clearPinAttempts(roll) {
+  if (redis) {
+    await redis.del(`creator:pin:attempts:${roll}`);
+    return;
+  }
+  localPinAttempts.delete(roll);
+}
+
+async function setPinBan(roll, ms = 3600_000) {
+  if (redis) {
+    await redis.set(`creator:pin:ban:${roll}`, "1", "PX", ms);
+    return;
+  }
+  cleanupLocalPinMaps();
+  localPinBans.set(roll, Date.now() + ms);
+}
+
+async function getPinBan(roll) {
+  if (redis) {
+    const ttl = await redis.pttl(`creator:pin:ban:${roll}`);
+    if (ttl === -2) return null; // no key
+    return ttl > 0 ? Date.now() + ttl : Date.now();
+  }
+  cleanupLocalPinMaps();
+  const expires = localPinBans.get(roll);
+  if (!expires) return null;
+  return expires > Date.now() ? expires : null;
+}
+
 // ---------------------- Admin API Key middleware ----------------------
 function requireAdminApiKey(req, res, next) {
   // Accept either x-admin-key header or Authorization: Bearer <key>
@@ -596,8 +670,8 @@ async function authenticate(req, res, next) {
 
 function requireAdmin(req, res, next) {
   if (!req.student) return res.status(401).json({ error: "Not authenticated" });
-  if (req.student.role !== "admin") return res.status(403).json({ error: "Admin only" });
-  next();
+  if (req.student.role === "admin" || req.student.role === "super_admin" || isCreator(req.student)) return next();
+  return res.status(403).json({ error: "Admin only" });
 }
 
 // ---------------------- Socket auth ----------------------
@@ -3217,10 +3291,15 @@ app.post("/api/admin/send-template-message", authenticate, requireAdmin, csrfPro
 
 // ==================== SUPER ADMIN ROUTES ====================
 function requireSuperAdmin(req, res, next) {
-  if (req.student?.role !== 'super_admin') {
-    return res.status(403).json({ error: 'Super admin access required' });
+  if (req.student?.role === 'super_admin' || isCreator(req.student)) {
+    return next();
   }
-  next();
+  return res.status(403).json({ error: 'Super admin access required' });
+}
+
+function requireCreator(req, res, next) {
+  if (isCreator(req.student)) return next();
+  return res.status(403).json({ error: 'Creator access required' });
 }
 
 // List all admins
@@ -3332,6 +3411,169 @@ app.get("/api/super-admin/audit-logs", authenticate, requireSuperAdmin, async (r
     const limit = Math.min(500, parseInt(req.query.limit || "100", 10));
     const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(limit);
     res.json(logs || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ==================== CREATOR / OWNER ROUTES ====================
+
+// PIN verification with attempt limits and ban
+app.post("/api/creator/pin/verify", authenticate, requireCreator, csrfProtect, async (req, res) => {
+  try {
+    const pin = (req.body.pin || "").trim();
+    const creatorPin = process.env.CREATOR_PIN || "";
+    const roll = req.student.roll;
+
+    const banUntil = await getPinBan(roll);
+    if (banUntil) {
+      return res.status(429).json({ error: "Too many incorrect attempts. Temporarily banned.", bannedUntil: new Date(banUntil) });
+    }
+
+    if (!creatorPin || creatorPin.length !== 4) {
+      return res.status(500).json({ error: "Creator PIN not configured on server" });
+    }
+
+    let ok = false;
+    if (pin.length === creatorPin.length) {
+      try {
+        ok = crypto.timingSafeEqual(Buffer.from(pin), Buffer.from(creatorPin));
+      } catch (err) {
+        ok = false;
+      }
+    }
+
+    if (!ok) {
+      const attempts = await incrementPinAttempts(roll);
+      const ua = req.headers['user-agent'] || 'unknown';
+      await logAudit(roll, 'CREATOR_PIN_FAIL', `Attempt ${attempts} from IP ${req.ip} UA ${ua}`);
+
+      if (attempts >= 10) {
+        await setPinBan(roll, 3600_000);
+        return res.status(429).json({ error: "Too many attempts. Banned for 1 hour.", attempts, bannedUntil: new Date(Date.now() + 3600_000) });
+      }
+
+      if (attempts >= 3) {
+        return res.status(403).json({ error: "Incorrect PIN", attempts, redirectLogin: true });
+      }
+
+      return res.status(401).json({ error: "Incorrect PIN", attempts });
+    }
+
+    await clearPinAttempts(roll);
+    await logAudit(roll, 'CREATOR_PIN_SUCCESS', `PIN verified from IP ${req.ip}`);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("creator pin verify error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Creator overview metrics
+app.get("/api/creator/overview", authenticate, requireCreator, async (req, res) => {
+  try {
+    const [totalStudents, admins, superAdmins, creators, moderators, teachers, lockedCount, warningCount, chatbotConfigDoc, maintenanceDoc] = await Promise.all([
+      Student.countDocuments({}),
+      Student.countDocuments({ role: 'admin' }),
+      Student.countDocuments({ role: 'super_admin' }),
+      Student.countDocuments({ role: 'creator' }),
+      Student.countDocuments({ role: 'moderator' }),
+      Student.countDocuments({ role: 'teacher' }),
+      Student.countDocuments({ locked: true }),
+      Warning.countDocuments({}),
+      SystemConfig.findOne({ key: 'chatbotAccess' }),
+      SystemConfig.findOne({ key: 'maintenance' })
+    ]);
+
+    const chatbotConfig = chatbotConfigDoc?.value || { disabled: false, removed: false, message: '' };
+    const maintenance = maintenanceDoc?.value || { enabled: false, message: '' };
+
+    res.json({
+      totals: {
+        students: totalStudents,
+        admins,
+        superAdmins,
+        creators,
+        moderators,
+        teachers,
+      },
+      locks: {
+        lockedAccounts: lockedCount,
+      },
+      warnings: warningCount,
+      chatbot: chatbotConfig,
+      maintenance,
+      serverTime: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("creator overview error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Chatbot kill switch (toggle)
+app.post("/api/creator/chatbot-config", authenticate, requireCreator, csrfProtect, async (req, res) => {
+  try {
+    const { disabled, message } = req.body || {};
+
+    let config = await SystemConfig.findOne({ key: 'chatbotAccess' });
+    if (!config) config = new SystemConfig({ key: 'chatbotAccess', value: {} });
+
+    if (config.value?.removed) {
+      return res.status(400).json({ error: 'Chatbot access was permanently removed. Restore requires database intervention.' });
+    }
+
+    config.value = {
+      ...config.value,
+      disabled: !!disabled,
+      message: message || config.value?.message || 'Chatbot temporarily unavailable',
+      removed: false,
+      updatedBy: req.student.roll,
+      updatedAt: new Date(),
+    };
+    config.markModified('value');
+    await config.save();
+
+    await logAudit(req.student.roll, 'CHATBOT_TOGGLE', `disabled=${config.value.disabled}; message=${config.value.message}`);
+    res.json({ ok: true, value: config.value });
+  } catch (err) {
+    console.error('creator chatbot-config error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Chatbot permanent removal
+app.post("/api/creator/chatbot-remove", authenticate, requireCreator, csrfProtect, async (req, res) => {
+  try {
+    const { confirm, message } = req.body || {};
+    if (!confirm) return res.status(400).json({ error: 'Confirmation required' });
+
+    let config = await SystemConfig.findOne({ key: 'chatbotAccess' });
+    if (!config) config = new SystemConfig({ key: 'chatbotAccess', value: {} });
+
+    config.value = {
+      disabled: true,
+      removed: true,
+      message: message || 'Chatbot access permanently removed by creator',
+      updatedBy: req.student.roll,
+      updatedAt: new Date(),
+    };
+    config.markModified('value');
+    await config.save();
+
+    await logAudit(req.student.roll, 'CHATBOT_REMOVAL', config.value.message);
+    res.json({ ok: true, value: config.value });
+  } catch (err) {
+    console.error('creator chatbot-remove error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Public chatbot config (for clients to respect kill switch)
+app.get("/api/system/chatbot-config", async (req, res) => {
+  try {
+    const config = await SystemConfig.findOne({ key: 'chatbotAccess' });
+    res.json(config?.value || { disabled: false, removed: false, message: '' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
