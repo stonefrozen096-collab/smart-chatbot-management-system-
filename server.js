@@ -128,6 +128,7 @@ const studentSchema = new Schema(
     cls: String,
     email: { type: String, default: "" },
     passwordHash: { type: String, default: null },
+    creatorPin: { type: String, default: null },
     role: { type: String, enum: ["student", "admin", "super_admin", "moderator", "teacher", "creator"], default: "student" },
     avatarUrl: { type: String, default: "" },
     bgColor: { type: String, default: "linear-gradient(135deg,#0077ff,#00d4ff)" },
@@ -3422,7 +3423,6 @@ app.get("/api/super-admin/audit-logs", authenticate, requireSuperAdmin, async (r
 app.post("/api/creator/pin/verify", authenticate, requireCreator, csrfProtect, async (req, res) => {
   try {
     const pin = (req.body.pin || "").trim();
-    const creatorPin = process.env.CREATOR_PIN || "";
     const roll = req.student.roll;
 
     const banUntil = await getPinBan(roll);
@@ -3430,18 +3430,12 @@ app.post("/api/creator/pin/verify", authenticate, requireCreator, csrfProtect, a
       return res.status(429).json({ error: "Too many incorrect attempts. Temporarily banned.", bannedUntil: new Date(banUntil) });
     }
 
-    if (!creatorPin || creatorPin.length !== 4) {
-      return res.status(500).json({ error: "Creator PIN not configured on server" });
+    const creator = await Student.findOne({ roll });
+    if (!creator || !creator.creatorPin) {
+      return res.status(500).json({ error: "Creator PIN not set. Please contact system administrator.", needsSetup: true });
     }
 
-    let ok = false;
-    if (pin.length === creatorPin.length) {
-      try {
-        ok = crypto.timingSafeEqual(Buffer.from(pin), Buffer.from(creatorPin));
-      } catch (err) {
-        ok = false;
-      }
-    }
+    const ok = await bcrypt.compare(pin, creator.creatorPin);
 
     if (!ok) {
       const attempts = await incrementPinAttempts(roll);
@@ -3465,6 +3459,59 @@ app.post("/api/creator/pin/verify", authenticate, requireCreator, csrfProtect, a
     return res.json({ ok: true });
   } catch (err) {
     console.error("creator pin verify error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Set/Update creator PIN (first time or reset)
+app.post("/api/creator/pin/set", authenticate, requireCreator, csrfProtect, async (req, res) => {
+  try {
+    const { currentPassword, newPin, confirmPin } = req.body;
+    const roll = req.student.roll;
+
+    if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+      return res.status(400).json({ error: "PIN must be exactly 4 digits" });
+    }
+
+    if (newPin !== confirmPin) {
+      return res.status(400).json({ error: "PINs do not match" });
+    }
+
+    const creator = await Student.findOne({ roll });
+    if (!creator) {
+      return res.status(404).json({ error: "Creator not found" });
+    }
+
+    // If PIN exists, require current password verification
+    if (creator.creatorPin) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Current password required to change PIN" });
+      }
+      const passwordOk = await creator.verifyPassword(currentPassword);
+      if (!passwordOk) {
+        await logAudit(roll, 'CREATOR_PIN_CHANGE_FAIL', 'Invalid password provided');
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+    }
+
+    const hashedPin = await bcrypt.hash(newPin, 12);
+    await Student.updateOne({ roll }, { $set: { creatorPin: hashedPin } });
+
+    await logAudit(roll, 'CREATOR_PIN_SET', creator.creatorPin ? 'PIN updated' : 'PIN set for first time');
+    return res.json({ ok: true, message: creator.creatorPin ? "PIN updated successfully" : "PIN set successfully" });
+  } catch (err) {
+    console.error("creator pin set error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Check if creator PIN is set
+app.get("/api/creator/pin/status", authenticate, requireCreator, async (req, res) => {
+  try {
+    const creator = await Student.findOne({ roll: req.student.roll }).select('creatorPin');
+    res.json({ isSet: !!creator?.creatorPin });
+  } catch (err) {
+    console.error("creator pin status error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

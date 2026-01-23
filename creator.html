@@ -93,6 +93,7 @@
     </div>
     <div class="actions">
       <button id="btnRefresh" class="btn-secondary">🔄 Refresh Data</button>
+      <button id="btnChangePIN" class="btn-secondary">🔐 Change PIN</button>
       <button id="btnLogout" class="btn-secondary">🚪 Logout</button>
       <button id="btnBack" class="btn-secondary">↩️ Back to Login</button>
     </div>
@@ -290,6 +291,7 @@
     document.getElementById('btnMaintenanceOn').addEventListener('click', () => setMaintenance(true));
     document.getElementById('btnMaintenanceOff').addEventListener('click', () => setMaintenance(false));
     document.getElementById('btnRefresh').addEventListener('click', () => { loadOverview(); loadAuditLogs(); });
+    document.getElementById('btnChangePIN').addEventListener('click', () => { window.location.href = 'creator-pin-setup.html'; });
     document.getElementById('btnLogout').addEventListener('click', () => { localStorage.clear(); sessionStorage.clear(); window.location.href = 'index.html'; });
     document.getElementById('btnBack').addEventListener('click', () => { window.location.href = 'index.html'; });
 

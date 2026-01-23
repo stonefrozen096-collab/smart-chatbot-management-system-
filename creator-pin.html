@@ -124,6 +124,12 @@
         const data = await res.json();
         attemptMeta.textContent = `Attempts: ${data.attempts || 0}`;
 
+        if (data.needsSetup) {
+          showMessage('PIN not set. Redirecting to setup...', 'error');
+          setTimeout(() => window.location.href = 'creator-pin-setup.html', 1000);
+          return;
+        }
+
         if (res.ok && data.ok) {
           showMessage('PIN verified. Redirecting...', 'success');
           sessionStorage.setItem('creatorPinVerified', 'true');
