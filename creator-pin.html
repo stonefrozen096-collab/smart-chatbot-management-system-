@@ -86,9 +86,43 @@
       window.location.href = 'index.html';
     }
 
+    let csrfToken = '';
+
     function getCookie(name) {
       const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
       return v ? v.pop() : '';
+    }
+
+    async function loadCSRF() {
+      try {
+        const res = await fetch(`${API}/api/csrf-token`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await res.json();
+        csrfToken = data.csrfToken || '';
+        return csrfToken;
+      } catch (err) {
+        console.error('CSRF load error:', err);
+        return '';
+      }
+    }
+
+    async function checkPinStatus() {
+      try {
+        const res = await fetch(`${API}/api/creator/pin/status`, {
+          credentials: 'include',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (!data.isSet) {
+          showMessage('PIN not set. Redirecting to setup...', 'error');
+          setTimeout(() => window.location.href = 'creator-pin-setup.html', 800);
+        }
+      } catch (err) {
+        console.error('Status check error:', err);
+      }
     }
 
     const pinInput = document.getElementById('pinInput');
@@ -117,7 +151,7 @@
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
-            'x-csrf-token': getCookie('csrf_token') || ''
+            'x-csrf-token': csrfToken || getCookie('csrf_token') || ''
           },
           body: JSON.stringify({ pin })
         });
@@ -161,6 +195,12 @@
 
     verifyBtn.addEventListener('click', verifyPin);
     pinInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyPin(); });
+
+    // Initialize: Load CSRF and check PIN status
+    (async function init() {
+      await loadCSRF();
+      await checkPinStatus();
+    })();
   </script>
 </body>
 </html>

@@ -119,9 +119,26 @@
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (!token) window.location.href = 'index.html';
 
+    let csrfToken = '';
+
     function getCookie(name) {
       const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
       return v ? v.pop() : '';
+    }
+
+    async function loadCSRF() {
+      try {
+        const res = await fetch(`${API}/api/csrf-token`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await res.json();
+        csrfToken = data.csrfToken || '';
+        return csrfToken;
+      } catch (err) {
+        console.error('CSRF load error:', err);
+        return '';
+      }
     }
 
     const msg = document.getElementById('msg');
@@ -158,7 +175,7 @@
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'x-csrf-token': getCookie('csrf_token') || ''
+          'x-csrf-token': csrfToken || getCookie('csrf_token') || ''
         },
         body: JSON.stringify(payload)
       });
@@ -230,7 +247,11 @@
       window.location.href = 'creator.html';
     });
 
-    checkPinStatus();
+    // Initialize: Load CSRF then check PIN status
+    (async function init() {
+      await loadCSRF();
+      await checkPinStatus();
+    })();
   </script>
 </body>
 </html>
