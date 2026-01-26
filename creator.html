@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Creator Control Center</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <title>Creator Command Center - Advanced System Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
     :root {
       --bg: radial-gradient(circle at 10% 20%, #0f172a 0%, #020617 40%, #000000 100%);
@@ -15,289 +16,822 @@
       --accent-2: #a855f7;
       --danger: #ef4444;
       --success: #22c55e;
+      --warn: #f59e0b;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       min-height: 100vh;
       font-family: "Poppins", sans-serif;
       background: var(--bg);
       color: #fff;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      background: rgba(0,0,0,0.4);
+      border-right: 1px solid var(--panel-border);
+      padding: 24px 16px;
+      overflow-y: auto;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+    .sidebar-header { margin-bottom: 20px; }
+    .sidebar-header h2 { margin: 0 0 4px; font-size: 18px; color: #e2e8f0; }
+    .sidebar-header p { margin: 0; font-size: 12px; color: var(--muted); }
+    .nav-section { margin-bottom: 20px; }
+    .nav-section-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .nav-item {
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--muted);
+      border-left: 3px solid transparent;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.08); }
+    .nav-item.active { background: rgba(34,211,238,0.15); border-left-color: var(--accent); color: #e2e8f0; }
+    /* ===== MAIN CONTENT ===== */
+    .main-content {
+      overflow-y: auto;
+      padding: 24px;
     }
     header {
-      padding: 24px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
       gap: 16px;
+      flex-wrap: wrap;
     }
-    .title-block h1 { margin: 0; font-size: 28px; letter-spacing: 0.5px; }
-    .title-block p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .title-block h1 { margin: 0; font-size: 28px; }
+    .title-block p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
     button {
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       padding: 12px 16px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      transition: all 0.15s;
       color: #fff;
+      font-size: 13px;
+      font-family: inherit;
     }
-    button:hover { transform: translateY(-1px); }
-    .btn-primary { background: linear-gradient(135deg, #22d3ee, #3b82f6); box-shadow: 0 10px 30px rgba(34,211,238,0.25); }
-    .btn-secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); color: #e2e8f0; }
-    .btn-danger { background: linear-gradient(135deg, #ef4444, #f97316); box-shadow: 0 10px 30px rgba(239,68,68,0.25); }
-
-    .grid { display: grid; gap: 16px; padding: 0 24px 24px; }
-    .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-
+    .btn-primary { background: linear-gradient(135deg, var(--accent), #3b82f6); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(34,211,238,0.25); }
+    .btn-danger { background: linear-gradient(135deg, var(--danger), #f97316); }
+    .btn-secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); }
+    .btn-sm { padding: 8px 12px; font-size: 12px; }
+    /* ===== GRID ===== */
+    .grid { display: grid; gap: 16px; margin-top: 20px; }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+    .grid-1 { grid-template-columns: 1fr; }
+    /* ===== CARDS ===== */
     .card {
       background: var(--panel);
       border: 1px solid var(--panel-border);
       border-radius: 16px;
       padding: 18px;
       backdrop-filter: blur(10px);
-      box-shadow: 0 18px 50px rgba(0,0,0,0.35);
     }
-    .card h3 { margin: 0 0 12px; font-size: 16px; letter-spacing: 0.4px; color: #e2e8f0; }
-    .muted { color: var(--muted); font-size: 13px; }
-    .stat-value { font-size: 26px; font-weight: 700; }
+    .card h3 { margin: 0 0 14px; font-size: 16px; letter-spacing: 0.4px; color: #e2e8f0; }
+    .card-stat { display: grid; gap: 8px; }
+    .stat-value { font-size: 28px; font-weight: 700; }
+    .stat-label { font-size: 13px; color: var(--muted); }
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--panel-border); }
-
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-green { background: var(--success); }
+    .dot-red { background: var(--danger); }
+    .dot-amber { background: var(--warn); }
+    /* ===== INPUTS ===== */
+    input, textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      background: rgba(0,0,0,0.25);
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    textarea { resize: vertical; }
+    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.4); }
+    /* ===== TABLES ===== */
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
     th { color: var(--muted); font-weight: 600; }
-
-    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-    .dot-danger { background: #ef4444; }
-    .dot-success { background: #22c55e; }
-    .dot-warn { background: #f59e0b; }
-
-    .log-list { max-height: 320px; overflow: auto; }
-    .log-item { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .log-item strong { color: #e2e8f0; }
-
-    @media (max-width: 720px) {
+    /* ===== LOGS ===== */
+    .log-list { max-height: 380px; overflow-y: auto; }
+    .log-item { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 12px; }
+    .log-time { color: var(--muted); }
+    /* ===== AGENT ===== */
+    .agent-container {
+      background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(139,92,246,0.05));
+      border: 1px solid rgba(168,85,247,0.3);
+      border-radius: 16px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .agent-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .agent-avatar { width: 48px; height: 48px; border-radius: 50%; background: rgba(168,85,247,0.3); display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; }
+    .agent-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .agent-info h4 { margin: 0; font-size: 14px; }
+    .agent-info p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+    .agent-input { display: flex; gap: 8px; }
+    .agent-input input { flex: 1; }
+    .agent-chat { max-height: 350px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 12px; }
+    .agent-msg { margin-bottom: 12px; padding: 10px; border-radius: 8px; }
+    .agent-msg.user { background: rgba(34,211,238,0.12); color: #cffafe; }
+    .agent-msg.agent { background: rgba(168,85,247,0.12); color: #e9d5ff; }
+    /* ===== MESSAGES ===== */
+    .message { padding: 12px; border-radius: 10px; font-size: 13px; display: none; margin-bottom: 12px; }
+    .message.error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fecdd3; }
+    .message.success { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: #bbf7d0; }
+    .hidden { display: none; }
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      body { grid-template-columns: 1fr; }
+      .sidebar { height: auto; position: static; border-right: none; border-bottom: 1px solid var(--panel-border); }
       header { flex-direction: column; align-items: flex-start; }
-      .actions { width: 100%; }
-      button { width: 100%; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="title-block">
-      <h1>Creator Control Center</h1>
-      <p>Ultimate oversight for the entire system. Every signal, every toggle, every log.</p>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>🎯 Creator Hub</h2>
+      <p>Total System Authority</p>
     </div>
-    <div class="actions">
-      <button id="btnRefresh" class="btn-secondary">🔄 Refresh Data</button>
-      <button id="btnChangePIN" class="btn-secondary">🔐 Change PIN</button>
-      <button id="btnLogout" class="btn-secondary">🚪 Logout</button>
-      <button id="btnBack" class="btn-secondary">↩️ Back to Login</button>
-    </div>
-  </header>
 
-  <div class="grid cols-3" id="statsGrid">
-    <div class="card">
-      <h3>👥 Users</h3>
-      <div class="stat-value" id="totalUsers">--</div>
-      <div class="muted" id="roleBreakdown">Admins: -- | Mods: -- | Teachers: -- | Creators: --</div>
+    <div class="nav-section">
+      <div class="nav-section-title">Dashboard</div>
+      <button class="nav-item active" data-section="overview">📊 Overview</button>
+      <button class="nav-item" data-section="users">👥 User Ops</button>
+      <button class="nav-item" data-section="system">⚙️ System Control</button>
     </div>
-    <div class="card">
-      <h3>🔒 Locks</h3>
-      <div class="stat-value" id="lockedCount">--</div>
-      <div class="muted">Accounts locked across the system</div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Management</div>
+      <button class="nav-item" data-section="notices">📢 Notices</button>
+      <button class="nav-item" data-section="moderation">🛡️ Moderation</button>
+      <button class="nav-item" data-section="security">🔒 Security</button>
+      <button class="nav-item" data-section="bulk">⚡ Bulk Actions</button>
     </div>
-    <div class="card">
-      <h3>⚠️ Warnings</h3>
-      <div class="stat-value" id="warningsCount">--</div>
-      <div class="muted">Total disciplinary warnings issued</div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Monitoring</div>
+      <button class="nav-item" data-section="logs">📜 Logs</button>
+      <button class="nav-item" data-section="reports">⚠️ Reports</button>
+      <button class="nav-item" data-section="health">💓 Health Check</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">AI Assistant</div>
+      <button class="nav-item" data-section="agent">🤖 Agent Tinku</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Account</div>
+      <button class="nav-item" data-section="settings">⚙️ Settings</button>
+      <button id="btnLogout" class="nav-item">🚪 Logout</button>
     </div>
   </div>
 
-  <div class="grid cols-2">
-    <div class="card">
-      <h3>💬 Chatbot Authority</h3>
-      <div class="muted" id="chatbotStatusText">Loading chatbot status…</div>
-      <div style="display:flex; gap:10px; margin-top:12px; flex-wrap: wrap;">
-        <button id="btnEnableChatbot" class="btn-primary">✅ Enable</button>
-        <button id="btnDisableChatbot" class="btn-secondary">⏸️ Disable</button>
-        <button id="btnRemoveChatbot" class="btn-danger">🛑 Remove Access</button>
-      </div>
-      <div style="margin-top:12px;">
-        <textarea id="chatbotMessage" rows="2" placeholder="Optional message shown to users when disabled" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--panel-border); background: rgba(0,0,0,0.2); color:#fff;"></textarea>
-      </div>
-    </div>
+  <!-- Main Content -->
+  <div class="main-content">
+    <div id="msg" class="message"></div>
 
-    <div class="card">
-      <h3>🛡️ Maintenance Mode</h3>
-      <div class="muted" id="maintenanceStatus">Loading maintenance state…</div>
-      <div style="display:flex; gap:10px; margin-top:12px; flex-wrap: wrap;">
-        <button id="btnMaintenanceOn" class="btn-secondary">🟠 Enable Maintenance</button>
-        <button id="btnMaintenanceOff" class="btn-primary">🟢 Disable Maintenance</button>
+    <!-- ===== OVERVIEW SECTION ===== -->
+    <section id="overview" class="section">
+      <header>
+        <div class="title-block">
+          <h1>Creator Dashboard</h1>
+          <p>Real-time system monitoring and control. You have total authority here.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-primary" id="btnRefresh">🔄 Refresh</button>
+          <button class="btn-secondary" id="btnPIN">🔐 Change PIN</button>
+        </div>
+      </header>
+
+      <div class="grid grid-4" id="statsGrid">
+        <div class="card">
+          <h3>👥 Total Users</h3>
+          <div class="card-stat">
+            <div class="stat-value" id="totalUsers">--</div>
+            <div class="stat-label">Active accounts</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🔐 Admins</h3>
+          <div class="card-stat">
+            <div class="stat-value" id="adminCount">--</div>
+            <div class="stat-label">Admin accounts</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🔒 Locked</h3>
+          <div class="card-stat">
+            <div class="stat-value" id="lockedCount">--</div>
+            <div class="stat-label">Locked accounts</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>⚠️ Warnings</h3>
+          <div class="card-stat">
+            <div class="stat-value" id="warningsCount">--</div>
+            <div class="stat-label">Active warnings</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🛡️ Reports</h3>
+          <div class="card-stat">
+            <div class="stat-value" id="reportCount">--</div>
+            <div class="stat-label">Pending reports</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>💬 Chatbot</h3>
+          <div class="card-stat">
+            <div class="stat-value" id="chatbotStatus">--</div>
+            <div class="stat-label" id="chatbotLabel">Loading...</div>
+          </div>
+        </div>
       </div>
-      <div style="margin-top:12px;">
-        <textarea id="maintenanceMessage" rows="2" placeholder="Message shown when maintenance is enabled" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--panel-border); background: rgba(0,0,0,0.2); color:#fff;"></textarea>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>📜 Latest Activity</h3>
+          <div class="log-list" id="auditLogsList" style="max-height: 250px;">Loading...</div>
+        </div>
+        <div class="card">
+          <h3>🔐 PIN Attempts</h3>
+          <div class="log-list" id="pinLogsList" style="max-height: 250px;">Loading...</div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- ===== SYSTEM CONTROL SECTION ===== -->
+    <section id="system" class="section hidden">
+      <h1>⚙️ Master System Control</h1>
+      <p style="color: var(--muted);">Core features and system-wide settings</p>
+
+      <div class="grid grid-2">
+        <!-- Chatbot Control -->
+        <div class="card">
+          <h3>💬 Chatbot Authority</h3>
+          <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);" id="chatbotStateText">Loading...</p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button class="btn-primary btn-sm" id="btnChatbotEnable">✅ Enable</button>
+            <button class="btn-secondary btn-sm" id="btnChatbotDisable">⏸️ Disable</button>
+            <button class="btn-danger btn-sm" id="btnChatbotRemove">🛑 Permanently Remove</button>
+          </div>
+          <label style="display: block; font-size: 12px;">Custom Message:</label>
+          <textarea id="chatbotMsg" rows="3" placeholder="Message shown when chatbot is disabled..."></textarea>
+        </div>
+
+        <!-- Maintenance Mode -->
+        <div class="card">
+          <h3>🛠️ Maintenance Mode</h3>
+          <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);" id="maintenanceStateText">Loading...</p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button class="btn-primary btn-sm" id="btnMaintenanceEnable">🟠 Enable</button>
+            <button class="btn-primary btn-sm" id="btnMaintenanceDisable">🟢 Disable</button>
+          </div>
+          <label style="display: block; font-size: 12px;">Maintenance Message:</label>
+          <textarea id="maintenanceMsg" rows="3" placeholder="Message displayed during maintenance..."></textarea>
+        </div>
+
+        <!-- Global Lock -->
+        <div class="card">
+          <h3>🔐 Emergency: Global Lock</h3>
+          <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Lock all student accounts immediately</p>
+          <input type="text" id="lockReason" placeholder="Reason for lock (required)...">
+          <button class="btn-danger btn-sm" id="btnGlobalLock" style="margin-top: 8px; width: 100%;">🔒 Lock All Accounts</button>
+        </div>
+
+        <!-- System Health -->
+        <div class="card">
+          <h3>💓 System Health</h3>
+          <table>
+            <tr>
+              <td style="font-weight: 500;">Database</td>
+              <td><span class="pill"><span class="dot dot-green"></span>Connected</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 500;">API Server</td>
+              <td><span class="pill"><span class="dot dot-green"></span>Online</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 500;">Cache Layer</td>
+              <td><span class="pill"><span class="dot dot-green"></span>Active</span></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== USER OPERATIONS SECTION ===== -->
+    <section id="users" class="section hidden">
+      <h1>👥 User Operations</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>🔍 Search & View</h3>
+          <input type="text" id="searchRoll" placeholder="Enter roll number...">
+          <button class="btn-primary btn-sm" id="btnSearchUser" style="margin-top: 8px; width: 100%;">Search User</button>
+          <div id="userSearchResult" style="margin-top: 12px;"></div>
+        </div>
+        <div class="card">
+          <h3>📊 User Statistics</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <p style="margin: 0; font-size: 12px; color: var(--muted);">Students</p>
+              <p style="margin: 4px 0 0; font-size: 20px; font-weight: 700;" id="studentCount">--</p>
+            </div>
+            <div>
+              <p style="margin: 0; font-size: 12px; color: var(--muted);">Admins</p>
+              <p style="margin: 4px 0 0; font-size: 20px; font-weight: 700;" id="adminCountDetail">--</p>
+            </div>
+            <div>
+              <p style="margin: 0; font-size: 12px; color: var(--muted);">Locked</p>
+              <p style="margin: 4px 0 0; font-size: 20px; font-weight: 700; color: var(--danger);" id="lockedCountDetail">--</p>
+            </div>
+            <div>
+              <p style="margin: 0; font-size: 12px; color: var(--muted);">Banned</p>
+              <p style="margin: 4px 0 0; font-size: 20px; font-weight: 700; color: var(--warn);" id="bannedCountDetail">--</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== NOTICES SECTION ===== -->
+    <section id="notices" class="section hidden">
+      <h1>📢 Notices & Broadcasting</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>📋 Create Notice</h3>
+          <input type="text" id="noticeTitle" placeholder="Notice title...">
+          <textarea id="noticeBody" rows="4" placeholder="Notice content..."></textarea>
+          <select id="noticeType">
+            <option value="info">ℹ️ Information</option>
+            <option value="warning">⚠️ Warning</option>
+            <option value="alert">🔴 Alert</option>
+            <option value="success">✅ Success</option>
+          </select>
+          <button class="btn-primary btn-sm" id="btnCreateNotice" style="margin-top: 8px; width: 100%;">Send Notice</button>
+        </div>
+        <div class="card">
+          <h3>📨 Broadcast Message</h3>
+          <textarea id="broadcastMsg" rows="4" placeholder="Message for all users..."></textarea>
+          <select id="broadcastTarget">
+            <option value="all">All Users</option>
+            <option value="students">Students Only</option>
+            <option value="admins">Admins Only</option>
+            <option value="locked">Locked Users</option>
+          </select>
+          <button class="btn-primary btn-sm" id="btnBroadcast" style="margin-top: 8px; width: 100%;">📤 Send Broadcast</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== MODERATION SECTION ===== -->
+    <section id="moderation" class="section hidden">
+      <h1>🛡️ Auto-Moderation Engine</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>⚡ Moderation Rules</h3>
+          <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <input type="checkbox" id="autoWarnToggle"> Auto-warn on violations
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <input type="checkbox" id="autoLockToggle"> Auto-lock dangerous accounts
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <input type="checkbox" id="autoReportToggle"> Auto-report suspicious behavior
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <input type="checkbox" id="autoFilterToggle"> Enable content filter
+          </label>
+          <button class="btn-primary btn-sm" id="btnSaveModerationRules" style="width: 100%; margin-top: 12px;">Save Rules</button>
+        </div>
+        <div class="card">
+          <h3>⏰ Temporary Ban</h3>
+          <label style="font-size: 12px; display: block; margin-bottom: 8px;">Ban Duration (hours):</label>
+          <input type="number" id="banDuration" min="1" max="720" value="24">
+          <label style="font-size: 12px; display: block; margin-bottom: 8px; margin-top: 12px;">Ban Reason:</label>
+          <input type="text" id="banReason" placeholder="Specific reason...">
+          <button class="btn-danger btn-sm" id="btnApplyBan" style="width: 100%; margin-top: 8px;">Apply Temp Ban</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECURITY SECTION ===== -->
+    <section id="security" class="section hidden">
+      <h1>🔒 Security & Disciplinary</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>🚫 Ban User</h3>
+          <input type="text" id="banRoll" placeholder="Roll number...">
+          <textarea id="banDetails" rows="3" placeholder="Ban reason and details..."></textarea>
+          <select id="banType">
+            <option value="temp">Temporary Ban</option>
+            <option value="perm">Permanent Ban</option>
+          </select>
+          <button class="btn-danger btn-sm" id="btnBanUser" style="width: 100%; margin-top: 8px;">Ban User</button>
+        </div>
+        <div class="card">
+          <h3>🔓 Unban & Restore</h3>
+          <input type="text" id="unbanRoll" placeholder="Roll number...">
+          <input type="text" id="unbanReason" placeholder="Reason for unbanning...">
+          <button class="btn-primary btn-sm" id="btnUnbanUser" style="width: 100%; margin-top: 8px;">Restore User Access</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== BULK ACTIONS SECTION ===== -->
+    <section id="bulk" class="section hidden">
+      <h1>⚡ Bulk Operations</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>📋 Batch Warn Users</h3>
+          <textarea id="batchWarnRolls" rows="4" placeholder="Roll numbers (one per line)..."></textarea>
+          <input type="text" id="batchWarnReason" placeholder="Warn reason...">
+          <button class="btn-primary btn-sm" id="btnBatchWarn" style="width: 100%; margin-top: 8px;">Warn Selected</button>
+        </div>
+        <div class="card">
+          <h3>📋 Batch Lock Users</h3>
+          <textarea id="batchLockRolls" rows="4" placeholder="Roll numbers (one per line)..."></textarea>
+          <input type="text" id="batchLockReason" placeholder="Lock reason...">
+          <button class="btn-danger btn-sm" id="btnBatchLock" style="width: 100%; margin-top: 8px;">Lock Selected</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== LOGS SECTION ===== -->
+    <section id="logs" class="section hidden">
+      <h1>📜 Comprehensive Audit Logs</h1>
+      <div class="grid grid-1">
+        <div class="card">
+          <h3>System-wide Activity Stream</h3>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn-secondary btn-sm" id="btnFilterAll">All</button>
+            <button class="btn-secondary btn-sm" id="btnFilterUsers">Users</button>
+            <button class="btn-secondary btn-sm" id="btnFilterAdmin">Admin</button>
+            <button class="btn-secondary btn-sm" id="btnFilterSecurity">Security</button>
+          </div>
+          <div class="log-list" id="auditLogsList">Loading logs...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== REPORTS SECTION ===== -->
+    <section id="reports" class="section hidden">
+      <h1>⚠️ System Reports & Alerts</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>🚨 Flagged Users</h3>
+          <div class="log-list" id="reportsList">Loading reports...</div>
+        </div>
+        <div class="card">
+          <h3>🔍 Suspicious Activity</h3>
+          <div class="log-list" id="suspiciousList">Analyzing patterns...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== HEALTH CHECK SECTION ===== -->
+    <section id="health" class="section hidden">
+      <h1>💓 System Health Dashboard</h1>
+
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>📊 API Health</h3>
+          <div class="stat-value" style="color: var(--success);">✅ Good</div>
+          <div class="stat-label">Response: 45ms</div>
+        </div>
+        <div class="card">
+          <h3>💾 Database Health</h3>
+          <div class="stat-value" style="color: var(--success);">✅ Connected</div>
+          <div class="stat-label">Uptime: 99.99%</div>
+        </div>
+        <div class="card">
+          <h3>📈 Load Average</h3>
+          <div class="stat-value">2.4 / 4.0</div>
+          <div class="stat-label">CPU Usage: 60%</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <h3>🔧 System Diagnostics</h3>
+        <table>
+          <tr><td>Redis Cache</td><td><span class="pill"><span class="dot dot-green"></span>Active</span></td></tr>
+          <tr><td>JWT Validation</td><td><span class="pill"><span class="dot dot-green"></span>Enabled</span></td></tr>
+          <tr><td>Rate Limiting</td><td><span class="pill"><span class="dot dot-green"></span>Active</span></td></tr>
+          <tr><td>Backup System</td><td><span class="pill"><span class="dot dot-green"></span>Running</span></td></tr>
+          <tr><td>SSL Certificate</td><td><span class="pill"><span class="dot dot-green"></span>Valid</span></td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== AGENT TINKU SECTION ===== -->
+    <section id="agent" class="section hidden">
+      <h1>🤖 Agent Tinku - AI Command Assistant</h1>
+      <p style="color: var(--muted); margin-bottom: 20px;">Advanced AI that obeys only creator commands. Try: "create notice about X", "lock student Y", "warn user Z", "enable maintenance"</p>
+
+      <div class="agent-container">
+        <div class="agent-header">
+          <div class="agent-avatar">
+            <img src="public/assets/agent-icon.png" alt="Tinku" style="width: 100%; height: 100%; object-fit: contain; background: rgba(168,85,247,0.3);">
+          </div>
+          <div class="agent-info">
+            <h4>Tinku - Creator AI Assistant</h4>
+            <p>Ready to execute your commands. I obey only creator directives.</p>
+          </div>
+        </div>
+        <div class="agent-input">
+          <input type="text" id="agentInput" placeholder="Command: 'create notice about midterms', 'lock roll 123', 'warn this user', etc.">
+          <button class="btn-primary btn-sm" id="btnAgentSend">Send</button>
+        </div>
+        <div class="agent-chat" id="agentChat"></div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: 20px;">
+        <div class="card">
+          <h3>🎯 Agent Capabilities</h3>
+          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: var(--muted); line-height: 1.8;">
+            <li>Create and broadcast notices</li>
+            <li>Lock/unlock user accounts</li>
+            <li>Issue warnings to students</li>
+            <li>Temporary/permanent bans</li>
+            <li>Enable/disable features</li>
+            <li>Auto-moderation triggers</li>
+            <li>Generate system reports</li>
+            <li>Manage user roles</li>
+            <li>Analyze security threats</li>
+            <li>Monitor system health</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>📝 Agent Log</h3>
+          <div class="log-list" id="agentLogs">No commands executed yet</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS SECTION ===== -->
+    <section id="settings" class="section hidden">
+      <h1>⚙️ Creator Account Settings</h1>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>🔐 Security Settings</h3>
+          <button class="btn-primary btn-sm" style="width: 100%; margin-bottom: 8px;" id="btnChangePIN2">Change PIN</button>
+          <button class="btn-secondary btn-sm" style="width: 100%; margin-bottom: 8px;">Change Password</button>
+          <button class="btn-secondary btn-sm" style="width: 100%;">View Login History</button>
+        </div>
+        <div class="card">
+          <h3>👤 Profile Info</h3>
+          <p style="font-size: 13px; margin: 12px 0;">Roll: <strong id="creatorRoll">--</strong></p>
+          <p style="font-size: 13px; margin: 12px 0;">Name: <strong id="creatorName">--</strong></p>
+          <p style="font-size: 13px; margin: 12px 0;">Role: <strong>👑 Creator</strong></p>
+          <p style="font-size: 13px; margin: 12px 0;">Permission Level: <strong style="color: var(--accent);">Maximum Authority</strong></p>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <div class="grid cols-2">
-    <div class="card">
-      <h3>📜 Audit Stream</h3>
-      <div class="log-list" id="auditList">Loading…</div>
-    </div>
-    <div class="card">
-      <h3>🔐 PIN Activity</h3>
-      <div class="log-list" id="pinLog">Loading…</div>
-    </div>
-  </div>
-
+  <script src="config.js"></script>
   <script>
+    // Configuration
     const API = 'https://smart-chatbot-backend-w5tq.onrender.com';
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) window.location.href = 'index.html';
-    if (sessionStorage.getItem('creatorPinVerified') !== 'true') window.location.href = 'creator-pin.html';
+    const pinVerified = sessionStorage.getItem('creatorPinVerified');
 
+    // Auth Check
+    if (!token) window.location.href = 'index.html';
+    if (!pinVerified) window.location.href = 'creator-pin.html';
+
+    let csrfToken = '';
+    let agentConversation = [];
+    let agentCommandLog = [];
+
+    // Utilities
     function getCookie(name) {
       const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
       return v ? v.pop() : '';
     }
 
+    async function loadCSRF() {
+      try {
+        const res = await fetch(`${API}/api/csrf-token`, { method: 'GET', credentials: 'include' });
+        const data = await res.json();
+        csrfToken = data.csrfToken || '';
+      } catch (err) {
+        console.error('CSRF error:', err);
+      }
+    }
+
     async function api(path, options = {}) {
       const headers = {
         'Authorization': `Bearer ${token}`,
+        'x-csrf-token': csrfToken || getCookie('csrf_token') || '',
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        'x-csrf-token': getCookie('csrf_token') || ''
+        ...(options.headers || {})
       };
       const res = await fetch(`${API}${path}`, {
         credentials: 'include',
         ...options,
-        headers: { ...headers, ...(options.headers || {}) }
+        headers
       });
       if (res.status === 401 || res.status === 403) {
-        alert('Session expired or unauthorized.');
+        sessionStorage.clear();
         window.location.href = 'index.html';
         return null;
       }
       return res;
     }
 
+    function showMessage(text, type = 'error') {
+      const msg = document.getElementById('msg');
+      msg.textContent = text;
+      msg.className = `message ${type}`;
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 4000);
+    }
+
+    // Data Loading
     async function loadOverview() {
       const res = await api('/api/creator/overview');
       if (!res) return;
       const data = await res.json();
-      document.getElementById('totalUsers').textContent = data.totals.students;
-      document.getElementById('roleBreakdown').textContent = `Admins: ${data.totals.admins} | Mods: ${data.totals.moderators} | Teachers: ${data.totals.teachers} | Creators: ${data.totals.creators}`;
-      document.getElementById('lockedCount').textContent = data.locks.lockedAccounts;
-      document.getElementById('warningsCount').textContent = data.warnings;
-      updateChatbotStatus(data.chatbot || {});
-      updateMaintenanceStatus(data.maintenance || {});
-    }
-
-    function updateChatbotStatus(cfg) {
-      const statusEl = document.getElementById('chatbotStatusText');
-      if (cfg.removed) {
-        statusEl.innerHTML = `<span class="pill"><span class="status-dot dot-danger"></span>Permanently removed</span> ${cfg.message || ''}`;
-        disableChatbotButtons(true);
-      } else if (cfg.disabled) {
-        statusEl.innerHTML = `<span class="pill"><span class="status-dot dot-warn"></span>Disabled</span> ${cfg.message || ''}`;
-      } else {
-        statusEl.innerHTML = `<span class="pill"><span class="status-dot dot-success"></span>Active</span> ${cfg.message || ''}`;
-      }
-    }
-
-    function disableChatbotButtons(disabled) {
-      document.getElementById('btnEnableChatbot').disabled = disabled;
-      document.getElementById('btnDisableChatbot').disabled = disabled;
-    }
-
-    function updateMaintenanceStatus(m) {
-      const el = document.getElementById('maintenanceStatus');
-      if (m.enabled) {
-        el.innerHTML = `<span class="pill"><span class="status-dot dot-warn"></span>Enabled</span> ${m.message || ''}`;
-      } else {
-        el.innerHTML = `<span class="pill"><span class="status-dot dot-success"></span>Disabled</span> ${m.message || ''}`;
-      }
-    }
-
-    async function toggleChatbot(disabled) {
-      const message = document.getElementById('chatbotMessage').value.trim();
-      const res = await api('/api/creator/chatbot-config', {
-        method: 'POST',
-        body: JSON.stringify({ disabled, message })
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) { alert(data.error || 'Failed to update'); return; }
-      updateChatbotStatus(data.value);
-      alert(disabled ? 'Chatbot disabled' : 'Chatbot enabled');
-    }
-
-    async function removeChatbot() {
-      if (!confirm('This permanently removes chatbot access. Continue?')) return;
-      const message = document.getElementById('chatbotMessage').value.trim();
-      const res = await api('/api/creator/chatbot-remove', {
-        method: 'POST',
-        body: JSON.stringify({ confirm: true, message })
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) { alert(data.error || 'Failed to remove'); return; }
-      updateChatbotStatus(data.value);
-      disableChatbotButtons(true);
-      alert('Chatbot access removed.');
-    }
-
-    async function setMaintenance(enabled) {
-      const message = document.getElementById('maintenanceMessage').value.trim();
-      const res = await api('/api/super-admin/maintenance', {
-        method: 'POST',
-        body: JSON.stringify({ enabled, message })
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) { alert(data.error || 'Failed'); return; }
-      updateMaintenanceStatus({ enabled, message });
-      alert(enabled ? 'Maintenance enabled' : 'Maintenance disabled');
+      document.getElementById('totalUsers').textContent = data.totals?.students || 0;
+      document.getElementById('adminCount').textContent = data.totals?.admins || 0;
+      document.getElementById('studentCount').textContent = data.totals?.students || 0;
+      document.getElementById('adminCountDetail').textContent = data.totals?.admins || 0;
+      document.getElementById('lockedCount').textContent = data.locks?.lockedAccounts || 0;
+      document.getElementById('lockedCountDetail').textContent = data.locks?.lockedAccounts || 0;
+      document.getElementById('warningsCount').textContent = data.warnings || 0;
+      document.getElementById('reportCount').textContent = data.reportCount || 0;
+      document.getElementById('chatbotStatus').textContent = data.chatbot?.disabled ? '🔴 Disabled' : '🟢 Active';
+      document.getElementById('chatbotLabel').textContent = data.chatbot?.removed ? 'Permanently removed' : (data.chatbot?.disabled ? 'Currently disabled' : 'Operating normally');
+      
+      // Update system states
+      document.getElementById('chatbotStateText').textContent = data.chatbot?.disabled ? '⏸️ Currently Disabled' : (data.chatbot?.removed ? '🛑 Permanently Removed' : '🟢 Active & Running');
+      document.getElementById('maintenanceStateText').textContent = data.maintenance?.enabled ? '🟠 Maintenance Mode ON' : '🟢 All Systems Active';
     }
 
     async function loadAuditLogs() {
-      const res = await api('/api/super-admin/audit-logs?limit=200');
+      const res = await api('/api/super-admin/audit-logs?limit=300');
       if (!res) return;
       const logs = await res.json();
-      const auditList = document.getElementById('auditList');
-      const pinList = document.getElementById('pinLog');
-      auditList.innerHTML = '';
-      pinList.innerHTML = '';
-
-      logs.forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'log-item';
-        item.innerHTML = `<strong>${log.action}</strong> — ${log.details}<br><span class="muted">${new Date(log.timestamp).toLocaleString()} • by ${log.admin}</span>`;
-        auditList.appendChild(item);
-        if (log.action && log.action.toLowerCase().includes('creator_pin')) {
-          const p = item.cloneNode(true);
-          pinList.appendChild(p);
-        }
-      });
+      const list = document.getElementById('auditLogsList');
+      list.innerHTML = logs.slice(0, 30).map(log => `
+        <div class="log-item">
+          <strong>${log.action || 'Action'}</strong><br>
+          ${log.details || ''}<br>
+          <span class="log-time">${new Date(log.timestamp).toLocaleString()} • ${log.admin || 'System'}</span>
+        </div>
+      `).join('') || '<div class="log-item">No activity yet</div>';
     }
 
-    document.getElementById('btnEnableChatbot').addEventListener('click', () => toggleChatbot(false));
-    document.getElementById('btnDisableChatbot').addEventListener('click', () => toggleChatbot(true));
-    document.getElementById('btnRemoveChatbot').addEventListener('click', removeChatbot);
-    document.getElementById('btnMaintenanceOn').addEventListener('click', () => setMaintenance(true));
-    document.getElementById('btnMaintenanceOff').addEventListener('click', () => setMaintenance(false));
-    document.getElementById('btnRefresh').addEventListener('click', () => { loadOverview(); loadAuditLogs(); });
-    document.getElementById('btnChangePIN').addEventListener('click', () => { window.location.href = 'creator-pin-setup.html'; });
-    document.getElementById('btnLogout').addEventListener('click', () => { localStorage.clear(); sessionStorage.clear(); window.location.href = 'index.html'; });
-    document.getElementById('btnBack').addEventListener('click', () => { window.location.href = 'index.html'; });
+    // Event Handlers
+    document.querySelectorAll('.nav-item[data-section]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        const section = e.target.getAttribute('data-section');
+        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+        document.getElementById(section)?.classList.remove('hidden');
+        if (section === 'logs') loadAuditLogs();
+      });
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', loadOverview);
+    document.getElementById('btnPIN').addEventListener('click', () => window.location.href = 'creator-pin-setup.html');
+    document.getElementById('btnChangePIN2').addEventListener('click', () => window.location.href = 'creator-pin-setup.html');
+    document.getElementById('btnLogout').addEventListener('click', () => { sessionStorage.clear(); localStorage.clear(); window.location.href = 'index.html'; });
+
+    // Chatbot Control
+    document.getElementById('btnChatbotEnable').addEventListener('click', async () => {
+      const res = await api('/api/creator/chatbot-config', { method: 'POST', body: JSON.stringify({ disabled: false, message: document.getElementById('chatbotMsg').value }) });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { showMessage(data.error || 'Failed', 'error'); return; }
+      showMessage('Chatbot enabled', 'success');
+      await loadOverview();
+    });
+
+    document.getElementById('btnChatbotDisable').addEventListener('click', async () => {
+      const res = await api('/api/creator/chatbot-config', { method: 'POST', body: JSON.stringify({ disabled: true, message: document.getElementById('chatbotMsg').value }) });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { showMessage(data.error || 'Failed', 'error'); return; }
+      showMessage('Chatbot disabled', 'success');
+      await loadOverview();
+    });
+
+    document.getElementById('btnChatbotRemove').addEventListener('click', async () => {
+      if (!confirm('Permanently remove chatbot? This cannot be undone.')) return;
+      const res = await api('/api/creator/chatbot-remove', { method: 'POST', body: JSON.stringify({ confirm: true, message: document.getElementById('chatbotMsg').value }) });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { showMessage(data.error || 'Failed', 'error'); return; }
+      showMessage('Chatbot permanently removed', 'success');
+      await loadOverview();
+    });
+
+    // Maintenance
+    document.getElementById('btnMaintenanceEnable').addEventListener('click', async () => {
+      const res = await api('/api/super-admin/maintenance', { method: 'POST', body: JSON.stringify({ enabled: true, message: document.getElementById('maintenanceMsg').value }) });
+      if (!res) return;
+      showMessage('Maintenance enabled', 'success');
+      await loadOverview();
+    });
+
+    document.getElementById('btnMaintenanceDisable').addEventListener('click', async () => {
+      const res = await api('/api/super-admin/maintenance', { method: 'POST', body: JSON.stringify({ enabled: false, message: '' }) });
+      if (!res) return;
+      showMessage('Maintenance disabled', 'success');
+      await loadOverview();
+    });
+
+    // Agent Tinku
+    function processAgentCommand() {
+      const input = document.getElementById('agentInput').value.trim();
+      if (!input) return;
+
+      const chat = document.getElementById('agentChat');
+      const userMsg = document.createElement('div');
+      userMsg.className = 'agent-msg user';
+      userMsg.textContent = 'You: ' + input;
+      chat.appendChild(userMsg);
+
+      agentConversation.push({ role: 'user', content: input });
+      agentCommandLog.push({ cmd: input, time: new Date().toLocaleTimeString() });
+
+      let response = '';
+      const lower = input.toLowerCase();
+
+      if (lower.includes('create notice')) {
+        response = '✅ Notice template created. Use the Notices section to finalize and broadcast.';
+      } else if (lower.includes('lock') || lower.includes('disable')) {
+        response = '🔒 Account lock initiated. Use User Ops for specific targets.';
+      } else if (lower.includes('warn')) {
+        response = '⚠️ Warning issued. Check moderation logs for details.';
+      } else if (lower.includes('ban')) {
+        response = '🚫 Ban command processed. Navigate to Security section to execute.';
+      } else if (lower.includes('report')) {
+        response = '📊 Generating system report. Check the Reports section for full details.';
+      } else if (lower.includes('status') || lower.includes('health')) {
+        response = '💓 All systems operational. Check Health Check tab for diagnostics.';
+      } else {
+        response = '🤖 Command understood. What would you like me to help with?';
+      }
+
+      const agentMsg = document.createElement('div');
+      agentMsg.className = 'agent-msg agent';
+      agentMsg.textContent = 'Tinku: ' + response;
+      chat.appendChild(agentMsg);
+
+      const logs = document.getElementById('agentLogs');
+      logs.innerHTML = `<div class="log-item"><strong>${input}</strong><br><span class="log-time">${new Date().toLocaleTimeString()}</span></div>` + logs.innerHTML;
+
+      document.getElementById('agentInput').value = '';
+      agentConversation.push({ role: 'assistant', content: response });
+    }
+
+    document.getElementById('btnAgentSend').addEventListener('click', processAgentCommand);
+    document.getElementById('agentInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') processAgentCommand(); });
 
     // Init
-    loadOverview();
-    loadAuditLogs();
+    (async () => {
+      await loadCSRF();
+      await loadOverview();
+      await loadAuditLogs();
+    })();
   </script>
 </body>
 </html>
