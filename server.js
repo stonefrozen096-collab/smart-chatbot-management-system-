@@ -2468,124 +2468,74 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
     await chat.save();
     io.emit("chat:new", chat);
 
-    // Strict course answer: reply only from course plan text or from prompt topics if PDF is disabled
-    if (value.strictCourse) {
+    // Always send to Gemini with optional context from available resources
+    // Build context from PDFs, topics, and notices - but NEVER restrict answers to just this content
+    let contextInfo = [];
+    
+    try {
+      const cfg = await getAppConfig();
+      
+      // Gather optional context from various sources
+      
+      // 1. Get recent notices to include as context
       try {
-        const cfg = await getAppConfig();
-        console.log(`📚 Strict course mode - coursePlanDisabled: ${cfg.coursePlanDisabled}, useGemini: ${value.useGemini}`);
-
-        // When PDFs are disabled, use admin-provided prompt topics instead
-        if (cfg.coursePlanDisabled) {
-          const text = (cfg.promptTopics || '').trim();
-          const q = (value.message || '').trim().toLowerCase();
-
-          // Detect notice-related intents FIRST
-          const noticeIntents = [
-            /notice/i, /announcement/i, /recent.*update/i, /what.*new/i,
-            /summarize.*notice/i, /latest.*notice/i, /tell.*about.*notice/i
-          ];
-          const isNoticeQuery = noticeIntents.some(pattern => pattern.test(value.message));
-
-          if (isNoticeQuery) {
-            try {
-              const notices = await Notice.find().sort({ createdAt: -1 }).limit(5).lean();
-              if (!notices || notices.length === 0) {
-                const reply = "No notices found at the moment. Check back later for updates.";
-                const assistant = new ChatHistory({
-                  roll: value.roll,
-                  sender: "assistant",
-                  message: reply,
-                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                });
-                await assistant.save();
-                io.emit("chat:new", assistant);
-                return res.json({ assistantReply: reply, chat });
-              }
-
-              let reply = "Here are the recent notices:\n\n";
-              notices.forEach((n, idx) => {
-                reply += `${idx + 1}. **${n.title}** (${new Date(n.createdAt).toLocaleDateString()})\n${n.body}\n\n`;
-              });
-
-              const assistant = new ChatHistory({
-                roll: value.roll,
-                sender: "assistant",
-                message: reply,
-                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              });
-              await assistant.save();
-              io.emit("chat:new", assistant);
-              return res.json({ assistantReply: reply, chat });
-            } catch (e) {
-              console.error('Notice fetch error:', e);
-              // Continue to regular flow
-            }
+        const notices = await Notice.find().sort({ createdAt: -1 }).limit(3).lean();
+        if (notices && notices.length > 0) {
+          let noticeContext = "Recent Notices:\n";
+          notices.forEach((n, idx) => {
+            noticeContext += `${idx + 1}. ${n.title} (${new Date(n.createdAt).toLocaleDateString()}): ${n.body}\n`;
+          });
+          contextInfo.push(noticeContext);
+        }
+      } catch (e) {
+        console.warn('Could not fetch notices:', e.message);
+      }
+      
+      // 2. Get course topics or PDF content if available
+      if (cfg.coursePlanDisabled) {
+        const topics = (cfg.promptTopics || '').trim();
+        if (topics) {
+          contextInfo.push(`Course Topics:\n${topics}`);
+        }
+      } else {
+        try {
+          const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(1).select("name content");
+          if (plans.length > 0 && plans[0].content) {
+            const content = plans[0].content.trim();
+            const snippet = content.length > 2000 ? content.slice(0, 2000) + '...' : content;
+            contextInfo.push(`Course Material from ${plans[0].name}:\n${snippet}`);
           }
-
-          // If no topics configured, return helpful message
-          if (!text) {
-            const reply = "I'm ready to help! Ask me about course topics, assignments, or notices. Administrators can configure topics in the admin panel.";
-            const assistant = new ChatHistory({
-              roll: value.roll,
-              sender: "assistant",
-              message: reply,
-              time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            });
-            await assistant.save();
-            io.emit("chat:new", assistant);
-            return res.json({ assistantReply: reply, chat });
-          }
-
-          console.log(`🎯 Using prompt topics mode with ${text.length} chars of topics`);
-          console.log(`📝 User question: "${value.message}"`);
-
-          // Use Gemini to generate answer based on user's actual question
-          if (value.useGemini) {
-            try {
-              const context = `You are a helpful educational assistant. The course covers these topics: ${text}\n\nAnswer the student's question directly and concisely. If the question is not related to these topics, politely redirect them to ask about the covered material.`;
-              console.log(`🤖 Calling Gemini with user question`);
-              const reply = await callGemini(value.message, { userRoll: value.roll, context });
-              console.log(`✅ Gemini response: ${reply.slice(0, 100)}...`);
-              const assistant = new ChatHistory({
-                roll: value.roll,
-                sender: "assistant",
-                message: reply,
-                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              });
-              await assistant.save();
-              io.emit("chat:new", assistant);
-              return res.json({ assistantReply: reply, chat });
-            } catch (e) {
-              console.warn('⚠️ Gemini error, falling back to topic definitions:', e.message);
-              // Continue to fallback below instead of returning error
-            }
-          }
-
-          // Improved fallback: generate helpful answers for common topics
-          const topicsLower = text.toLowerCase();
-          const knownDefs = {
-            'data visualization': 'Data visualization is the practice of representing data in graphical forms (charts, plots, maps) to help people see patterns, trends, and outliers quickly. Effective visualization combines clear encoding (position, size, color), appropriate chart selection (bar, line, scatter, heatmap), and concise storytelling so insights are easy to understand and act on.',
-            'inclusion-exclusion principle': 'The inclusion–exclusion principle is a counting technique in combinatorics for finding the size of the union of overlapping sets. It alternates adding and subtracting intersections to avoid double-counting: |A ∪ B| = |A| + |B| − |A ∩ B|, and generalizes to more sets.',
-            'universe': 'In set theory, the “universe” often refers to the universal set under consideration that contains all objects of interest. In cosmology, the universe is the totality of space, time, matter, and energy.',
-            'mathematics': 'Mathematics is the study of quantity, structure, space, and change. It provides precise language and tools for modeling, analyzing, and solving problems across science, engineering, and everyday life.',
-            'physics': 'Physics is the natural science that studies matter, energy, motion, and the fundamental forces of nature. Core areas include mechanics, thermodynamics, electromagnetism, optics, and quantum physics.'
-          };
-
-          let reply;
-          for (const key of Object.keys(knownDefs)) {
-            if (q.includes(key) && topicsLower.includes(key)) {
-              reply = knownDefs[key];
-              break;
-            }
-          }
-
-          // Only show topic list if explicitly asked
-          if (!reply && /(what|tell|show|list).*(topic|subject|course|syllabus|cover)/i.test(value.message)) {
-            reply = `We cover the following topics in this course:\n\n${text}\n\nFeel free to ask specific questions about any of these topics!`;
-          } else if (!reply) {
-            reply = `I understand you're asking: "${value.message}"\n\nCould you rephrase or ask about specific topics? Type "show topics" to see what we cover, or ask about notices, assignments, and course content.`;
-          }
-
+        } catch (e) {
+          console.warn('Could not fetch course plans:', e.message);
+        }
+      }
+      
+      // Build the complete context
+      const optionalContext = contextInfo.length > 0 ? contextInfo.join('\n\n---\n\n') : '';
+      
+      // Build intelligent prompt that allows ALL questions, not just course-related
+      let systemPrompt = `You are a helpful educational AI assistant. `;
+      
+      if (optionalContext) {
+        systemPrompt += `Here is some context that may be relevant:\n\n${optionalContext}\n\n---\n\n`;
+        systemPrompt += `Use this context when it's relevant to the question, but you are NOT limited to only this information. `;
+      }
+      
+      systemPrompt += `Answer all questions clearly and helpfully, whether they are about the course material, general knowledge, or any other topic. Be concise, accurate, and friendly.`;
+      
+      console.log(`📝 User question: "${value.message}"`);
+      console.log(`🎯 Context sources available: ${contextInfo.length}`);
+      
+      // Always call Gemini if useGemini is true
+      if (value.useGemini) {
+        try {
+          console.log(`🤖 Calling Gemini API for: "${value.message}"`);
+          const reply = await callGemini(value.message, {
+            userRoll: value.roll, 
+            context: systemPrompt 
+          });
+          console.log(`✅ Gemini response received (${reply.length} chars)`);
+          
           const assistant = new ChatHistory({
             roll: value.roll,
             sender: "assistant",
@@ -2594,151 +2544,28 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
           });
           await assistant.save();
           io.emit("chat:new", assistant);
-          return res.json({ assistantReply: reply, chat, strict: true });
-        }
-
-        // Otherwise use uploaded course plans
-        const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(5);
-        const plan = plans[0];
-        let text = (plan?.content || '').trim();
-        
-        // Filter out non-readable/encoded content (base64, binary, etc.)
-        const isPrintableText = (str) => {
-          if (!str || str.length === 0) return false;
-          const printableChars = str.split('').filter(c => {
-            const code = c.charCodeAt(0);
-            return (code >= 32 && code <= 126) || code === 10 || code === 13 || code === 9;
-          }).length;
-          const ratio = printableChars / str.length;
-          return ratio > 0.7;
-        };
-        
-        if (!text || !isPrintableText(text)) {
-          return res.status(403).json({ error: "No readable course content available. Please re-upload course plan as PDF." });
-        }
-        
-        const q = (value.message || '').trim();
-        const tokens = q.toLowerCase().split(/\W+/).filter(Boolean);
-        let bestIdx = -1;
-        for (const t of tokens) {
-          if (t.length < 3) continue;
-          const idx = text.toLowerCase().indexOf(t);
-          if (idx >= 0) { bestIdx = idx; break; }
-        }
-        if (bestIdx < 0) {
-          return res.status(403).json({ error: "course related clarification only allowed" });
-        }
-        const start = Math.max(0, bestIdx - 300);
-        const end = Math.min(text.length, bestIdx + 500);
-        const snippet = text.slice(start, end).replace(/\s{2,}/g, ' ').trim();
-        const reply = `From course plan (${plan?.name || 'plan'}): ${snippet}`;
-        const assistant = new ChatHistory({
-          roll: value.roll,
-          sender: "assistant",
-          message: reply,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-        await assistant.save();
-        io.emit("chat:new", assistant);
-        return res.json({ assistantReply: reply, chat, strict: true });
-      } catch (e) {
-        console.error('strictCourse error:', e);
-        return res.status(403).json({ error: "course related clarification only allowed" });
-      }
-    }
-
-    if (value.useGemini) {
-      try {
-        const reply = await callGemini(value.message, { userRoll: value.roll });
-        const assistant = new ChatHistory({
-          roll: value.roll,
-          sender: "assistant",
-          message: reply,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-        await assistant.save();
-        io.emit("chat:new", assistant);
-        return res.json({ assistantReply: reply, chat });
-      } catch (err) {
-        console.error("Gemini call failed:", err);
-        // graceful fallback below
-      }
-    }
-
-    // Intelligent fallback assistant reply
-    try {
-      const lower = (value.message || "").toLowerCase();
-      let reply;
-
-      // Check for notice-related queries first
-      const noticeIntents = [
-        /notice/i, /announcement/i, /recent.*update/i, /what.*new/i,
-        /summarize.*notice/i, /latest.*notice/i, /tell.*about.*notice/i
-      ];
-      const isNoticeQuery = noticeIntents.some(pattern => pattern.test(value.message));
-
-      if (isNoticeQuery) {
-        const notices = await Notice.find().sort({ createdAt: -1 }).limit(5).lean();
-        if (!notices || notices.length === 0) {
-          reply = "No notices found at the moment. Check back later for updates.";
-        } else {
-          reply = "Here are the recent notices:\n\n";
-          notices.forEach((n, idx) => {
-            reply += `${idx + 1}. **${n.title}** (${new Date(n.createdAt).toLocaleDateString()})\n${n.body}\n\n`;
+          return res.json({ assistantReply: reply, chat });
+        } catch (e) {
+          console.error('⚠️ Gemini API error:', e.message);
+          // If Gemini fails, return a simple error message
+          const errorReply = "I'm having trouble connecting right now. Please try again in a moment.";
+          const assistant = new ChatHistory({
+            roll: value.roll,
+            sender: "assistant",
+            message: errorReply,
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           });
+          await assistant.save();
+          io.emit("chat:new", assistant);
+          return res.json({ assistantReply: errorReply, chat });
         }
-      } else if (/(first|1st).*experiment|lab\s*1|exp\s*1/.test(lower)) {
-        const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(1).select("name content");
-        if (plans.length > 0 && plans[0].content) {
-          const content = plans[0].content.toLowerCase();
-          const expMatch = content.match(/experiment\s*1[:\-]?\s*[^\n]{50,200}/i);
-          if (expMatch) {
-            reply = `From ${plans[0].name}: ${expMatch[0]}. For complete details, please refer to the uploaded course plan.`;
-          } else {
-            reply = "I found a course plan but couldn't locate the first experiment details. Please check the uploaded documents or ask your instructor.";
-          }
-        } else {
-          reply = "No course plans with experiment details are currently available. Please check with your instructor or wait for the materials to be uploaded.";
-        }
-      } else if (/deadline|submission|date/.test(lower)) {
-        const notices = await Notice.find().sort({ createdAt: -1 }).limit(10).lean();
-        const deadlineNotices = notices.filter(n => 
-          /deadline|due|submit|submission/i.test(n.title) || /deadline|due|submit|submission/i.test(n.body)
-        );
-        if (deadlineNotices.length > 0) {
-          reply = "Here are notices mentioning deadlines:\n\n";
-          deadlineNotices.slice(0, 3).forEach((n, idx) => {
-            reply += `${idx + 1}. **${n.title}**\n${n.body}\n\n`;
-          });
-        } else {
-          reply = "No deadline information found in recent notices. Please check with your instructor or the course plan for submission dates.";
-        }
-      } else if (/syllabus|units?|topics?|course.*content|what.*learn/.test(lower)) {
-        const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(1).select("name content");
-        if (plans.length > 0 && plans[0].content) {
-          const snippet = plans[0].content.slice(0, 500).replace(/\s{2,}/g, ' ').trim();
-          reply = `Here's an overview from ${plans[0].name}:\n\n${snippet}...\n\nAsk me specific questions about any topic for more details!`;
-        } else {
-          reply = "Course syllabus/topics are not yet available. Please ask your instructor or wait for course materials to be uploaded.";
-        }
-      } else {
-        // Generic helpful response
-        reply = `I understand you're asking: "${value.message}"\n\nI can help you with:\n• Course topics and syllabus\n• Assignments and deadlines\n• Recent notices and announcements\n• Lab experiments\n\nPlease ask a specific question about any of these areas!`;
       }
-
-      const assistant = new ChatHistory({
-        roll: value.roll,
-        sender: "assistant",
-        message: reply,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      });
-      await assistant.save();
-      io.emit("chat:new", assistant);
-      return res.json({ assistantReply: reply, chat, fallback: true });
-    } catch (e) {
-      console.error("fallback reply error:", e);
-      return res.status(201).json(chat);
+    } catch (err) {
+      console.error('Context building error:', err);
     }
+
+    // If we reach here, useGemini was false - just acknowledge the message was saved
+    return res.status(201).json(chat);
   } catch (err) {
     console.error("chat post error:", err);
     res.status(500).json({ error: "Server error" });
