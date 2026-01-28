@@ -162,12 +162,22 @@ sendBtn?.addEventListener("click", async () => {
   if (!message) return;
   if (chatLock) return alert("⚠️ Chat is locked.");
 
-  await addMessage("user", message);
   chatInput.value = "";
+  
+  console.log(`💬 User sending: "${message}"`);
+  
+  await addMessage("user", message);
 
-  const reply = await askGemini(message);
-  lastBotMessage = reply;
-  await addMessage("bot", reply);
+  try {
+    const reply = await askGemini(message);
+    if (reply) {
+      lastBotMessage = reply;
+      await addMessage("bot", reply);
+    }
+  } catch (err) {
+    console.error('Error in chat:', err);
+    await addMessage("bot", "Error: Could not get response from AI");
+  }
 });
 
 async function addMessage(sender, text, time = null) {
@@ -238,24 +248,42 @@ async function registerWarning() {
 
 // ==================== AI REQUEST ====================
 async function askGemini(prompt) {
-  const res = await secureFetch(`${API_URL}/api/chat`, {
-    method: "POST",
-    body: JSON.stringify({
-      roll: studentProfile.roll,
-      sender: "user",
-      message: prompt,
-      useGemini: true,
-      strictCourse: true
-    })
-  });
+  try {
+    console.log(`📤 Sending to Gemini API: "${prompt}"`);
+    
+    const res = await secureFetch(`${API_URL}/api/chat`, {
+      method: "POST",
+      body: JSON.stringify({
+        roll: studentProfile.roll,
+        sender: "user",
+        message: prompt,
+        useGemini: true
+      })
+    });
 
-  if (!res.ok) {
-    const err = await res.json();
-    return err.error || "Server error";
+    console.log(`📥 API Response Status: ${res.status}`);
+    
+    if (!res.ok) {
+      const err = await res.json();
+      console.error('API Error:', err);
+      return err.error || "Server error";
+    }
+
+    const data = await res.json();
+    console.log(`🤖 Gemini Response:`, data);
+    
+    const reply = data.assistantReply;
+    if (!reply) {
+      console.error('No assistantReply in response:', data);
+      return "No response from AI.";
+    }
+    
+    console.log(`✅ Extracted reply: "${reply.substring(0, 100)}..."`);
+    return reply;
+  } catch (err) {
+    console.error('askGemini error:', err);
+    return "Error contacting AI.";
   }
-
-  const data = await res.json();
-  return data.assistantReply || data.answer || "No response from AI.";
 }
 
 // ==================== BACKGROUND ====================
