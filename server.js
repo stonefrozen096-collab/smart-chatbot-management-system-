@@ -2844,13 +2844,11 @@ if (multer) {
 
 // ---------------------- Gemini integration ----------------------
 async function callGemini(prompt, opts = {}) {
-  // Build the full prompt with context if provided
   let fullPrompt = prompt;
   if (opts.context) {
     fullPrompt = `${opts.context}\n\nUser Question: ${prompt}`;
   }
 
-  // Try Google Gemini API if configured
   if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
@@ -2859,7 +2857,6 @@ async function callGemini(prompt, opts = {}) {
           parts: [{ text: fullPrompt }]
         }]
       };
-      console.log(`🔄 Calling Gemini API with prompt (${fullPrompt.length} chars)`);
       
       const r = await fetch(url, {
         method: "POST",
@@ -2867,34 +2864,31 @@ async function callGemini(prompt, opts = {}) {
         body: JSON.stringify(body)
       });
       
-      console.log(`🔄 Gemini API response status: ${r.status}`);
-      
       if (r.ok) {
         const json = await r.json();
-        console.log(`📦 Gemini response JSON:`, JSON.stringify(json).slice(0, 200));
         
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          console.log(`✅ Successfully extracted text from Gemini (${text.length} chars)`);
-          return text;
-        } else {
-          console.warn('⚠️ Gemini response missing expected fields:', json);
+        if (json.candidates && json.candidates.length > 0) {
+          const candidate = json.candidates[0];
+          if (candidate.finishReason) {
+            console.log(`finishReason: ${candidate.finishReason}`);
+          }
+          
+          if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+            const text = candidate.content.parts[0].text;
+            if (text) {
+              return text;
+            }
+          }
         }
-      } else {
-        const errText = await r.text();
-        console.error(`❌ Gemini API error status ${r.status}:`, errText.slice(0, 200));
+        
+        console.warn('Gemini response invalid structure:', json);
       }
     } catch (e) {
-      console.error('❌ Gemini API fetch error:', e.message);
+      console.error('Gemini API error:', e.message);
     }
-  } else {
-    console.warn('⚠️ Gemini API key not configured');
   }
 
-  // If Gemini fails, return a simple error message (do NOT block general questions)
-  const errorMessage = "I'm having trouble processing your request right now. Please try again in a moment.";
-  console.warn(`⚠️ Falling back to error message: "${errorMessage}"`);
-  return errorMessage;
+  return "I'm having trouble processing your request right now. Please try again in a moment.";
 }
 
 app.post("/api/gemini", authenticate, csrfProtect, async (req, res) => {
