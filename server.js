@@ -2829,6 +2829,8 @@ async function callGemini(prompt, opts = {}) {
     fullPrompt = `${opts.context}\n\nUser Question: ${prompt}`;
   }
 
+  console.log('API Key exists:', !!GEMINI_API_KEY);
+
   if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
@@ -2844,28 +2846,33 @@ async function callGemini(prompt, opts = {}) {
         body: JSON.stringify(body)
       });
       
-      if (r.ok) {
-        const json = await r.json();
-        
-        if (json.candidates && json.candidates.length > 0) {
-          const candidate = json.candidates[0];
-          if (candidate.finishReason) {
-            console.log(`finishReason: ${candidate.finishReason}`);
-          }
-          
-          if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-            const text = candidate.content.parts[0].text;
-            if (text) {
-              return text;
-            }
-          }
-        }
-        
-        console.warn('Gemini response invalid structure:', json);
+      if (!r.ok) {
+        const errText = await r.text();
+        throw new Error(`HTTP ${r.status}: ${errText.slice(0, 200)}`);
       }
+      
+      const json = await r.json();
+      
+      if (!json.candidates || json.candidates.length === 0) {
+        throw new Error('No candidates in Gemini response');
+      }
+      
+      const candidate = json.candidates[0];
+      if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+        throw new Error('No content parts in candidate');
+      }
+      
+      const text = candidate.content.parts[0].text;
+      if (!text) {
+        throw new Error('No text in content part');
+      }
+      
+      return text;
     } catch (e) {
       console.error('Gemini API error:', e.message);
     }
+  } else {
+    console.warn('Gemini API key not configured');
   }
 
   return "I'm having trouble processing your request right now. Please try again in a moment.";
