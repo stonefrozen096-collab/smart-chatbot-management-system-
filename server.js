@@ -2446,7 +2446,6 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
     const student = await Student.findOne({ roll: value.roll });
     if (!student) return res.status(404).json({ error: "Student not found" });
 
-    // Check Redis account lock (stronger/faster)
     const rLock = await getAccountLockRedis(value.roll);
     if (rLock) return res.status(403).json({ error: "Account locked", reason: rLock });
 
@@ -2454,7 +2453,6 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
       return res.status(403).json({ error: "Account locked", lockedUntil: student.lockedUntil });
     }
 
-    // Check chatbot-specific lock (separate from account lock)
     if (student.chatbotLockedUntil && new Date(student.chatbotLockedUntil) > new Date()) {
       return res.status(403).json({ 
         error: "Chatbot access locked due to violation", 
@@ -2468,104 +2466,24 @@ app.post("/api/chat", authenticate, csrfProtect, chatLimiter, async (req, res) =
     await chat.save();
     io.emit("chat:new", chat);
 
-    // Always send to Gemini with optional context from available resources
-    // Build context from PDFs, topics, and notices - but NEVER restrict answers to just this content
-    let contextInfo = [];
-    
+    let assistantReply;
     try {
-      const cfg = await getAppConfig();
-      
-      // Gather optional context from various sources
-      
-      // 1. Get recent notices to include as context
-      try {
-        const notices = await Notice.find().sort({ createdAt: -1 }).limit(3).lean();
-        if (notices && notices.length > 0) {
-          let noticeContext = "Recent Notices:\n";
-          notices.forEach((n, idx) => {
-            noticeContext += `${idx + 1}. ${n.title} (${new Date(n.createdAt).toLocaleDateString()}): ${n.body}\n`;
-          });
-          contextInfo.push(noticeContext);
-        }
-      } catch (e) {
-        console.warn('Could not fetch notices:', e.message);
-      }
-      
-      // 2. Get course topics or PDF content if available
-      if (cfg.coursePlanDisabled) {
-        const topics = (cfg.promptTopics || '').trim();
-        if (topics) {
-          contextInfo.push(`Course Topics:\n${topics}`);
-        }
-      } else {
-        try {
-          const plans = await CoursePlan.find().sort({ uploadedAt: -1 }).limit(1).select("name content");
-          if (plans.length > 0 && plans[0].content) {
-            const content = plans[0].content.trim();
-            const snippet = content.length > 2000 ? content.slice(0, 2000) + '...' : content;
-            contextInfo.push(`Course Material from ${plans[0].name}:\n${snippet}`);
-          }
-        } catch (e) {
-          console.warn('Could not fetch course plans:', e.message);
-        }
-      }
-      
-      // Build the complete context
-      const optionalContext = contextInfo.length > 0 ? contextInfo.join('\n\n---\n\n') : '';
-      
-      // Build intelligent prompt that allows ALL questions, not just course-related
-      let systemPrompt = `You are a helpful educational AI assistant. `;
-      
-      if (optionalContext) {
-        systemPrompt += `Here is some context that may be relevant:\n\n${optionalContext}\n\n---\n\n`;
-        systemPrompt += `Use this context when it's relevant to the question, but you are NOT limited to only this information. `;
-      }
-      
-      systemPrompt += `Answer all questions clearly and helpfully, whether they are about the course material, general knowledge, or any other topic. Be concise, accurate, and friendly.`;
-      
-      console.log(`📝 User question: "${value.message}"`);
-      console.log(`🎯 Context sources available: ${contextInfo.length}`);
-      
-      // Always call Gemini if useGemini is true
-      if (value.useGemini) {
-        try {
-          console.log(`🤖 Calling Gemini API for: "${value.message}"`);
-          const reply = await callGemini(value.message, {
-            userRoll: value.roll, 
-            context: systemPrompt 
-          });
-          console.log(`✅ Gemini response received (${reply.length} chars)`);
-          
-          const assistant = new ChatHistory({
-            roll: value.roll,
-            sender: "assistant",
-            message: reply,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          });
-          await assistant.save();
-          io.emit("chat:new", assistant);
-          return res.json({ assistantReply: reply, chat });
-        } catch (e) {
-          console.error('⚠️ Gemini API error:', e.message);
-          // If Gemini fails, return a simple error message
-          const errorReply = "I'm having trouble connecting right now. Please try again in a moment.";
-          const assistant = new ChatHistory({
-            roll: value.roll,
-            sender: "assistant",
-            message: errorReply,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          });
-          await assistant.save();
-          io.emit("chat:new", assistant);
-          return res.json({ assistantReply: errorReply, chat });
-        }
-      }
-    } catch (err) {
-      console.error('Context building error:', err);
+      assistantReply = await callGemini(value.message);
+    } catch (e) {
+      console.error('Gemini error:', e.message);
+      assistantReply = "I'm having trouble right now. Please try again.";
     }
 
-    // If we reach here, useGemini was false - just acknowledge the message was saved
-    return res.status(201).json(chat);
+    const assistant = new ChatHistory({
+      roll: value.roll,
+      sender: "assistant",
+      message: assistantReply,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    });
+    await assistant.save();
+    io.emit("chat:new", assistant);
+    
+    return res.json({ assistantReply, chat });
   } catch (err) {
     console.error("chat post error:", err);
     res.status(500).json({ error: "Server error" });
