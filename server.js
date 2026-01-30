@@ -2430,6 +2430,7 @@ const chatLimiter = rateLimitRedis({
 });
 
 app.post("/api/chat", async (req, res) => {
+  console.log('POST /api/chat received, sender:', req.body?.sender);
   try {
     const schema = Joi.object({
       roll: Joi.string().optional(),
@@ -2441,11 +2442,14 @@ app.post("/api/chat", async (req, res) => {
     const { error, value } = schema.validate(req.body);
     if (error) return res.status(400).json({ error: error.message });
 
+    console.log('Validation passed, message:', value.message.slice(0, 50));
+    
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const chat = new ChatHistory({ roll: value.roll, sender: value.sender, message: value.message, time });
     await chat.save();
     io.emit("chat:new", chat);
 
+    console.log('About to call callGemini');
     let assistantReply;
     try {
   assistantReply = await callGemini(value.message);
@@ -2824,6 +2828,7 @@ if (multer) {
 
 // ---------------------- Gemini integration ----------------------
 async function callGemini(prompt, opts = {}) {
+  console.log('callGemini called with prompt length:', prompt?.length);
   let fullPrompt = prompt;
   if (opts.context) {
     fullPrompt = `${opts.context}\n\nUser Question: ${prompt}`;
