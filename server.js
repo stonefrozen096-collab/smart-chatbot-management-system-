@@ -2433,7 +2433,7 @@ app.post("/api/chat", async (req, res) => {
   console.log('POST /api/chat received, sender:', req.body?.sender);
   try {
     const schema = Joi.object({
-      roll: Joi.string().required(),
+      roll: Joi.string().optional(),
       sender: Joi.string().required(),
       message: Joi.string().max(4000).required(),
       useGemini: Joi.boolean().optional(),
@@ -2452,18 +2452,18 @@ app.post("/api/chat", async (req, res) => {
     console.log('About to call callGemini');
     let assistantReply;
     try {
-      assistantReply = await callGemini(value.message);
-    } catch (e) {
-      console.error('Gemini error:', e.message);
-      assistantReply = "I'm having trouble right now. Please try again.";
+  assistantReply = await callGemini(value.message);
+} catch (e) {
+  console.error("Gemini error FULL:", e);
+  assistantReply = "ERROR: " + (e?.message || "Unknown Gemini error");
     }
-
+    
     const assistant = new ChatHistory({
-      roll: value.roll,
-      sender: "assistant",
-      message: assistantReply,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    });
+  roll: value.roll || "guest",
+  sender: "assistant",
+  message: assistantReply,
+  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+});
     await assistant.save();
     io.emit("chat:new", assistant);
     
