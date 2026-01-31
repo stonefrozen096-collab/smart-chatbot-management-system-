@@ -41,7 +41,7 @@ JWT_ACCESS_SECRET=$(openssl rand -base64 32)
 JWT_REFRESH_SECRET=$(openssl rand -base64 32)
 
 # Gemini AI Configuration (Optional - get from https://makersuite.google.com/app/apikey)
-GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent
+GEMINI_API_URL=https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-latest:generateContent
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Redis Configuration (Optional but recommended for production)

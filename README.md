@@ -68,7 +68,7 @@ JWT_ACCESS_SECRET=your_super_secret_access_key_change_me_in_production
 JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_me_in_production
 
 # Gemini AI Configuration (Optional)
-GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent
+GEMINI_API_URL=https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro-latest:generateContent
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Redis Configuration (Optional but recommended)
